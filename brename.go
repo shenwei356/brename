@@ -34,7 +34,7 @@ func init() {
 		fmt.Printf("\nUsage: %s -s <regexp> -r <replacement> [-R] [-D] [path...]\n\n", os.Args[0])
 		fmt.Println("Options:")
 		flag.PrintDefaults()
-		fmt.Println("\n  Site: https://github.com/shenwei356/BatchFileRename")
+		fmt.Println("\n  Site: https://github.com/shenwei356/brename")
 		fmt.Println("Author: Wei Shen (shenwei356@gmail.com)\n")
 	}
 
