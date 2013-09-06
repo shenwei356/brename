@@ -24,8 +24,8 @@ Have a Try
 ----------
 You can compile by yourself or just download the executable files immediately.
 
-- [brename.exe](https://github.com/shenwei356/brename/blob/master/brename.exe) for Windows.
-- [brename_x86_64](https://github.com/shenwei356/brename/blob/master/brename_x86_64) for 64bit Linux.
+- [brename.exe](https://github.com/shenwei356/brename/blob/master/brename.exe?raw=true) for Windows.
+- [brename_x86_64](https://github.com/shenwei356/brename/blob/master/brename_x86_64?raw=true) for 64bit Linux.
     
 Copyright (c) 2013, Wei Shen (shenwei356@gmail.com)
 
