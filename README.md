@@ -26,7 +26,7 @@ Usage
 Example
 -------
     
-    BatchFileRename -s "\.jpeg$" -r ".jpg"
+    brename -s "\.jpeg$" -r ".jpg"
     
 Have a Try
 ----------
