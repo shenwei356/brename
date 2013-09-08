@@ -26,8 +26,8 @@ var (
 func init() {
 	flag.StringVar(&src, "s", "", "Regular expression")
 	flag.StringVar(&repl, "r", "", "Replacement")
-	flag.BoolVar(&R, "R", true, "Recursively rename")
-	flag.BoolVar(&D, "D", true, "Rename directories")
+	flag.BoolVar(&R, "R", false, "Recursively rename")
+	flag.BoolVar(&D, "D", false, "Rename directories")
 
 	flag.Usage = func() {
 		fmt.Println("\nbrename\n  Recursively batch rename files and directories by regular expression.")
@@ -49,7 +49,7 @@ func main() {
 	re, err := regexp.Compile(src)
 	if err != nil {
 		recover()
-		fmt.Println("Bad regular expression!")
+		fmt.Println("[Error] Illegal regular expression!")
 		return
 	}
 
@@ -67,7 +67,7 @@ func main() {
 			fmt.Println(err)
 			continue
 		}
-		fmt.Printf("%d files be renamed\n\n", n)
+		fmt.Printf("%d files be renamed.\n\n", n)
 	}
 }
 
@@ -91,9 +91,9 @@ func BatchRename(path string, re *regexp.Regexp, repl string, recursive bool, D 
 	if err != nil {
 		recover()
 		if os.IsNotExist(err) {
-			return 0, errors.New("Not Exist: " + path)
+			return 0, errors.New("[Error] Path not exist: " + path)
 		}
-		return 0, errors.New("ReadDir Error: " + path)
+		return 0, errors.New("[Error] Path read error: " + path)
 	}
 
 	var filename string
@@ -140,6 +140,7 @@ func BatchRename(path string, re *regexp.Regexp, repl string, recursive bool, D 
 
 func Rename(path string, re *regexp.Regexp, repl string) (uint, error) {
 	dir, filename := filepath.Split(path)
+
 	// not matched
 	if !re.Match([]byte(filename)) {
 		return 0, nil
@@ -151,9 +152,17 @@ func Rename(path string, re *regexp.Regexp, repl string) (uint, error) {
 		return 0, nil
 	}
 
+	// duplicated files
+	// in windows, rename a file to another existed file will cause err.
+	// however, it will succeed in Linux.
+	if _, err := os.Stat(filename2); err == nil {
+		return 0, errors.New("[Error] Rename file error: " + filename + " -> " + filename2 + " (" + filename2 + " already existed!)")
+	}
+
+	// rename
 	err := os.Rename(path, filepath.Join(dir, filename2))
 	if err != nil {
-		return 0, errors.New("\nRename file error: [" + filename + " -> " + filename2 + "].")
+		return 0, errors.New(fmt.Sprintf("[Error] %v", err))
 	}
 
 	return 1, nil
