@@ -2,7 +2,8 @@ brename
 ===============
 
 Recursively batch rename files and directories by regular expression.
-通过正则表达式递归、批量重命名文件和文件夹.
+
+通过正则表达式递归、批量重命名文件和文件夹。
 
 Install
 -------
@@ -13,13 +14,13 @@ This package is "go-gettable", just:
 Usage
 -----
     
-  Usage: brename -s <regexp> -r <replacement> [-R] [-D] [path...]
+    Usage: brename -s <regexp> -r <replacement> [-R] [-D] [path...]
 
-  Options:
-    -D=false: Rename directories
-    -R=false: Recursively rename
-    -r="": Replacement
-    -s="": Regular expression
+    Options:
+      -D=false: Rename directories
+      -R=false: Recursively rename
+      -r="": Replacement
+      -s="": Regular expression
 
 
 Example
