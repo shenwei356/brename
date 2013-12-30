@@ -27,17 +27,17 @@ Example
 -------
     
   1. a.jpeg -> a.jpg
-  
+
     brename -s "\.jpeg$" -r ".jpg"
-    
+
   2. ab.png -> abab.png
-  
+
     brename -s "([ab]+)" -r '$1$1'
-    
+
     or
-    
+
     brename -s "([ab]+)" -r "\$1\$1"
-    
+
 Have a Try
 ----------
 You can compile by yourself or just download the executable files immediately.
