@@ -1,4 +1,4 @@
-// Copyright 2013 Wei Shen (shenwei356@gmail.com). All rights reserved.
+// Copyright 2014 Wei Shen (shenwei356@gmail.com). All rights reserved.
 // Use of this source code is governed by a MIT-license
 // that can be found in the LICENSE file.
 
@@ -46,9 +46,9 @@ Example:
 	}
 
 	flag.Parse()
-	if src == "" && repl == "" {
+	if src == "" || repl == "" {
 		flag.Usage()
-		os.Exit(2)
+		os.Exit(1)
 	}
 }
 
