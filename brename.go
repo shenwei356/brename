@@ -46,8 +46,8 @@ Example:
 	}
 
 	flag.Parse()
-	if src == "" || repl == "" {
-		flag.Usage()
+	if src == "" {
+		fmt.Fprintln(os.Stderr, "option -s should be set")
 		os.Exit(1)
 	}
 }
