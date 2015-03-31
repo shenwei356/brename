@@ -1,4 +1,4 @@
-// Copyright 2014 Wei Shen (shenwei356@gmail.com). All rights reserved.
+// Copyright 2015 Wei Shen (shenwei356@gmail.com). All rights reserved.
 // Use of this source code is governed by a MIT-license
 // that can be found in the LICENSE file.
 

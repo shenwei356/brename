@@ -8,7 +8,7 @@ Recursively batch rename files and directories by regular expression.
 Install
 -------
 
-[**Recommanded**] To compile with the newest source code, please use [gobuild - Cross-Platform Go Project Compiler](http://gobuild.io/download/github.com/shenwei356/brename). It's simple and fast!
+[Download](https://github.com/shenwei356/brename/releases)
 
 This package is "go-gettable", just:
 
