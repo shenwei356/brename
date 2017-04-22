@@ -21,13 +21,15 @@ var (
 	repl string // replacement
 	R    bool   // recursive
 	D    bool   // Rename directories
+	dryrun bool // dry run
 )
 
 func init() {
-	flag.StringVar(&src, "s", "", "Regular expression")
+	flag.StringVar(&src, "s", "", "Search pattern (regular expression)")
 	flag.StringVar(&repl, "r", "", "Replacement")
 	flag.BoolVar(&R, "R", false, "Recursively rename")
 	flag.BoolVar(&D, "D", false, "Rename directories")
+	flag.BoolVar(&dryrun, "d", false, "Dry run")
 
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "\nbrename\n  Recursively batch rename files and directories by regular expression.")
@@ -47,7 +49,7 @@ Example:
 
 	flag.Parse()
 	if src == "" {
-		fmt.Fprintln(os.Stderr, "option -s should be set")
+		fmt.Fprintln(os.Stderr, "option -s needed")
 		os.Exit(1)
 	}
 }
@@ -55,9 +57,8 @@ Example:
 func main() {
 	re, err := regexp.Compile(src)
 	if err != nil {
-		recover()
-		fmt.Fprintln(os.Stderr, "[Error] Illegal regular expression!")
-		return
+		fmt.Fprintln(os.Stderr, "[Error] invalid regular expression!")
+		os.Exit(1)
 	}
 
 	var paths []string
@@ -67,14 +68,13 @@ func main() {
 		paths = flag.Args()
 	}
 	for _, path := range paths {
-		fmt.Printf("%s:\n", path)
+		fmt.Fprintf(os.Stderr, "%s:\n", path)
 		n, err := BatchRename(path, re, repl, R, D)
 		if err != nil {
-			recover()
 			fmt.Fprintln(os.Stderr, err)
-			continue
+			os.Exit(1)
 		}
-		fmt.Printf("%d files be renamed.\n\n", n)
+		fmt.Fprintf(os.Stderr, "%d files renamed.\n\n", n)
 	}
 }
 
@@ -86,8 +86,6 @@ func BatchRename(path string, re *regexp.Regexp, repl string, recursive bool, D 
 	if err == nil {
 		n, err = Rename(path, re, repl)
 		if err != nil {
-			recover()
-			fmt.Fprintln(os.Stderr, err)
 			return 0, err
 		}
 		return n, nil
@@ -96,7 +94,6 @@ func BatchRename(path string, re *regexp.Regexp, repl string, recursive bool, D 
 	// it's a directory
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
-		recover()
 		if os.IsNotExist(err) {
 			return 0, errors.New("[Error] Path not exist: " + path)
 		}
@@ -116,9 +113,7 @@ func BatchRename(path string, re *regexp.Regexp, repl string, recursive bool, D 
 			if recursive {
 				num, err := BatchRename(fileFullPath, re, repl, recursive, D)
 				if err != nil {
-					recover()
-					fmt.Fprintln(os.Stderr, err)
-					continue
+					return n, err
 				}
 				n += num
 			}
@@ -126,18 +121,14 @@ func BatchRename(path string, re *regexp.Regexp, repl string, recursive bool, D 
 			if D {
 				num, err := Rename(fileFullPath, re, repl)
 				if err != nil {
-					recover()
-					fmt.Fprintln(os.Stderr, err)
-					continue
+					return n, err
 				}
 				n += num
 			}
 		} else {
 			num, err := Rename(fileFullPath, re, repl)
 			if err != nil {
-				recover()
-				fmt.Fprintln(os.Stderr, err)
-				continue
+				return n, err
 			}
 			n += num
 		}
