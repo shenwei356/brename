@@ -24,3 +24,6 @@ _testmain.go
 *.prof
 *.directory
 brename
+t.*
+binaries
+brename_*
