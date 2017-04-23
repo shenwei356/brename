@@ -78,7 +78,7 @@ And then:
 ```
 brename -- a cross-platform command-line tool for safely batch renaming files/directories
 
-Version: 0.2.0
+Version: 2.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
