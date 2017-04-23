@@ -21,13 +21,13 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/fatih/color"
@@ -37,8 +37,8 @@ import (
 
 var log *logging.Logger
 
-var VERSION = "0.2.0"
-var APP = "brename"
+var version = "2.0"
+var app = "brename"
 
 // Options is the struct containing all global options
 type Options struct {
@@ -56,7 +56,7 @@ type Options struct {
 
 func getOptions(cmd *cobra.Command) *Options {
 	version := getFlagBool(cmd, "version")
-	if version{
+	if version {
 		checkVersion()
 		return &Options{Version: version}
 	}
@@ -72,7 +72,7 @@ func getOptions(cmd *cobra.Command) *Options {
 	}
 	re, err := regexp.Compile(p)
 	if err != nil {
-		log.Errorf("Illegal regular expression: %s", pattern)
+		log.Errorf("illegal regular expression for search pattern: %s", pattern)
 		os.Exit(1)
 	}
 
@@ -94,26 +94,29 @@ func init() {
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 	backendFormatter := logging.NewBackendFormatter(backend, logFormat)
 	logging.SetBackend(backendFormatter)
-	log = logging.MustGetLogger(APP)
+	log = logging.MustGetLogger(app)
 
 	RootCmd.Flags().IntP("verbose", "v", 0, "verbose level (0 for all, 1 for warning and error, 2 for only error)")
 	RootCmd.Flags().BoolP("version", "V", false, "print version information and check for update")
 	RootCmd.Flags().BoolP("dry-run", "d", false, "print rename operations but do not run")
 
 	RootCmd.Flags().StringP("pattern", "p", "", "search pattern (regular expression)")
-	RootCmd.Flags().StringP("replacement", "r", "", "replacement")
+	RootCmd.Flags().StringP("replacement", "r", "", `replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character.`)
 	RootCmd.Flags().BoolP("recursive", "R", false, "rename recursively")
 	RootCmd.Flags().BoolP("including-dir", "D", false, "rename directories")
 	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case")
 
-	RootCmd.Example = `  1. renaming all .jpeg files to .jpg in all subdirs
-      brename -p "\.jpeg" -r ".jpg" -R   dir
-  2. doubling "a"
-      brename -p "(a)" -r "\$1\$1"  or brename -p "(a)" -r '$1$1'
-  3. even renaming directory
-      brename -p ":" -r "-" -R -D   pdf-dirs
-  4. dry run and showing potential dangerous operation
+	RootCmd.Example = `  1. dry run and showing potential dangerous operations
+      brename -p "abc" -d
+  2. dry run and only show operations that will cause error
       brename -p "abc" -d -v 2
+  3. renaming all .jpeg files to .jpg in all subdirectories
+      brename -p "\.jpeg" -r ".jpg" -R   dir
+  4. using capture variables, e.g., $1, $2 ...
+      brename -p "(a)" -r "\$1\$1"
+      or brename -p "(a)" -r '$1$1' in Linux/Mac OS X
+  5. even renaming directory
+      brename -p ":" -r "-" -R -D   pdf-dirs
 
   More examples: https://github.com/shenwei356/brename`
 
@@ -140,21 +143,21 @@ Global Flags:
 Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
   {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasAvailableSubCommands }}
 
-Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+Use "{{.CommandPath}} --help" for more information about a command.{{end}}
 `)
 }
 
 func main() {
 	if err := RootCmd.Execute(); err != nil {
 		log.Error(err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 }
 
 func checkError(err error) {
 	if err != nil {
 		log.Error(err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 }
 
@@ -198,8 +201,7 @@ func getFlagNonNegativeInt(cmd *cobra.Command, flag string) int {
 }
 
 func checkVersion() {
-	app := APP
-	fmt.Printf("%s v%s\n", app, VERSION)
+	fmt.Printf("%s v%s\n", app, version)
 	fmt.Println("\nChecking new version...")
 
 	resp, err := http.Get(fmt.Sprintf("https://github.com/shenwei356/%s/releases/latest", app))
@@ -207,13 +209,13 @@ func checkVersion() {
 		checkError(fmt.Errorf("Network error"))
 	}
 	items := strings.Split(resp.Request.URL.String(), "/")
-	version := ""
+	var version string
 	if items[len(items)-1] == "" {
 		version = items[len(items)-2]
 	} else {
 		version = items[len(items)-1]
 	}
-	if version == "v"+VERSION {
+	if version == "v"+version {
 		fmt.Printf("You are using the latest version of %s\n", app)
 	} else {
 		fmt.Printf("New version available: %s %s at %s\n", app, version, resp.Request.URL.String())
@@ -222,10 +224,10 @@ func checkVersion() {
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   APP,
-	Short: "a cross-platform command-line tool for batch renaming files/directories",
+	Use:   app,
+	Short: "a cross-platform command-line tool for safely batch renaming files/directories",
 	Long: fmt.Sprintf(`
-brename -- a cross-platform command-line tool for batch renaming files/directories
+brename -- a cross-platform command-line tool for safely batch renaming files/directories
 
 Version: %s
 
@@ -233,7 +235,11 @@ Author: Wei Shen <shenwei356@gmail.com>
 
 Homepage: https://github.com/shenwei356/brename
 
-`, VERSION),
+Attention:
+  1. Paths starting with "." is ignored
+  2. Overwriting existed files is not allowed
+
+`, version),
 	Run: func(cmd *cobra.Command, args []string) {
 		// var err error
 		opt := getOptions(cmd)
@@ -242,44 +248,70 @@ Homepage: https://github.com/shenwei356/brename
 			return
 		}
 
-		ops := make([]operation, 0, 100)
-		var err error
-
-		for _, path := range getFileList(args) {
-			ops, err = walk(opt, ops, path)
-			checkError(err)
-		}
+		ops := make([]operation, 0, 1000)
+		opCH := make(chan operation, 100)
+		done := make(chan int)
 
 		var hasErr bool
-		for _, op := range ops {
-			if int(op.code) >= opt.Verbose {
-				log.Infof("TODO: %s\n", op)
-			}
+		var n, nErr int
 
-			if int(op.code) > 1 {
-				hasErr = true
+		go func() {
+			for op := range opCH {
+				if int(op.code) >= opt.Verbose {
+					log.Infof("checking: %s\n", op)
+				}
+
+				switch int(op.code) {
+				case 0:
+					ops = append(ops, op)
+					n++
+				case 1:
+				default:
+					hasErr = true
+					nErr++
+					continue
+				}
 			}
+			done <- 1
+		}()
+
+		var err error
+		for _, path := range getFileList(args) {
+			err = walk(opt, opCH, path)
+			if err != nil {
+				close(opCH)
+				checkError(err)
+			}
+		}
+		close(opCH)
+		<-done
+
+		if hasErr {
+			log.Errorf("%d potential errors detected, please check", nErr)
+			os.Exit(1)
+		}
+
+		log.Infof("%d paths to be renamed", n)
+		if n == 0 {
+			return
 		}
 
 		if opt.DryRun {
 			return
 		}
 
-		if hasErr {
-			checkError(errors.New("potential errors will occur, please check!!!"))
-
-		}
-
+		var n2 int
 		for _, op := range ops {
 			err := os.Rename(op.source, op.target)
 			if err != nil {
 				log.Errorf("fail to rename: %s -> %s", op.source, op.target)
-				os.Exit(-1)
+				os.Exit(1)
 			}
-			if opt.Verbose >= 0 {
-				log.Infof("renamed: %s -> %s", op.source, op.target)
-			}
+			log.Infof("renamed: %s -> %s", op.source, op.target)
+			n2++
 		}
+
+		log.Infof("%d paths renamed", n2)
 	},
 }
 
@@ -287,38 +319,56 @@ type code int
 
 const (
 	codeOK code = iota
-	codeNoChange
+	codeUnchanged
 	codeExisted
 	codeMissingTarget
 )
 
 var yellow = color.New(color.FgYellow).SprintFunc()
 var red = color.New(color.FgRed).SprintFunc()
+var green = color.New(color.FgGreen).SprintFunc()
+
+var isWindows = runtime.GOOS == "windows"
 
 func (c code) String() string {
+	if isWindows {
+		switch c {
+		case codeOK:
+			return "ok"
+		case codeUnchanged:
+			return "unchanged"
+		case codeExisted:
+			return "new path existed"
+		case codeMissingTarget:
+			return "missing target"
+		}
+	}
+
 	switch c {
 	case codeOK:
-		return "ok"
-	case codeNoChange:
-		return yellow("not changed")
+		return green("ok")
+	case codeUnchanged:
+		return yellow("unchanged")
 	case codeExisted:
 		return red("new path existed")
 	case codeMissingTarget:
 		return red("missing target")
 	}
+
 	return "undefined code"
 }
 
 type operation struct {
-	source, target string
-	code           code
+	source string
+	target string
+	code   code
 }
 
 func (op operation) String() string {
-	return fmt.Sprintf("%s -> %s: %s", op.source, op.target, op.code)
+	return fmt.Sprintf("%s -> %s [%s]", op.source, op.target, op.code)
 }
 
-func check(opt *Options, path string) (bool, operation) {
+func checkOperation(opt *Options, path string) (bool, operation) {
 	dir, filename := filepath.Split(path)
 
 	if !opt.PatternRe.MatchString(filename) {
@@ -331,7 +381,7 @@ func check(opt *Options, path string) (bool, operation) {
 	}
 
 	if filename2 == filename {
-		return true, operation{path, filepath.Join(dir, filename2), codeNoChange}
+		return true, operation{path, filepath.Join(dir, filename2), codeUnchanged}
 	}
 
 	target := filepath.Join(dir, filename2)
@@ -342,20 +392,20 @@ func check(opt *Options, path string) (bool, operation) {
 	return true, operation{path, filepath.Join(dir, filename2), codeOK}
 }
 
-func walk(opt *Options, ops []operation, path string) ([]operation, error) {
+func walk(opt *Options, opCh chan<- operation, path string) error {
 	_, err := ioutil.ReadFile(path)
 	// it's a file
 	if err == nil {
-		if ok, op := check(opt, path); ok {
-			ops = append(ops, op)
+		if ok, op := checkOperation(opt, path); ok {
+			opCh <- op
 		}
-		return ops, nil
+		return nil
 	}
 
 	// it's a directory
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
-		return ops, err
+		return err
 	}
 
 	var filename string
@@ -369,24 +419,23 @@ func walk(opt *Options, ops []operation, path string) ([]operation, error) {
 		// sub directory
 		if file.IsDir() {
 			if opt.Recursive {
-				var err error
-				ops, err = walk(opt, ops, fileFullPath)
+				err := walk(opt, opCh, fileFullPath)
 				if err != nil {
-					return ops, err
+					return err
 				}
 			}
-			// Rename directories
+			// rename directories
 			if opt.IncludingDir {
-				if ok, op := check(opt, fileFullPath); ok {
-					ops = append(ops, op)
+				if ok, op := checkOperation(opt, fileFullPath); ok {
+					opCh <- op
 				}
 			}
 		} else {
-			if ok, op := check(opt, fileFullPath); ok {
-				ops = append(ops, op)
+			if ok, op := checkOperation(opt, fileFullPath); ok {
+				opCh <- op
 			}
 		}
 	}
 
-	return ops, nil
+	return nil
 }
