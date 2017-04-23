@@ -1,4 +1,4 @@
-# brename -- a cross-platform command-line tool for safely batch renaming files/directories
+# brename -- a cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
 [![Built with GoLang](https://img.shields.io/badge/powered_by-go-6362c2.svg?style=flat)](https://golang.org)
 [![Go Report Card](https://goreportcard.com/badge/github.com/shenwei356/brename)](https://goreportcard.com/report/github.com/shenwei356/brename)
@@ -76,7 +76,7 @@ And then:
 ## Usage
 
 ```
-brename -- a cross-platform command-line tool for safely batch renaming files/directories
+brename -- a cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
 Version: 2.0
 

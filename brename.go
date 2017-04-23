@@ -225,9 +225,9 @@ func checkVersion() {
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   app,
-	Short: "a cross-platform command-line tool for safely batch renaming files/directories",
+	Short: "a cross-platform command-line tool for safely batch renaming files/directories via regular expression",
 	Long: fmt.Sprintf(`
-brename -- a cross-platform command-line tool for safely batch renaming files/directories
+brename -- a cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
 Version: %s
 
