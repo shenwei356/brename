@@ -209,16 +209,16 @@ func checkVersion() {
 		checkError(fmt.Errorf("Network error"))
 	}
 	items := strings.Split(resp.Request.URL.String(), "/")
-	var version string
+	var v string
 	if items[len(items)-1] == "" {
-		version = items[len(items)-2]
+		v = items[len(items)-2]
 	} else {
-		version = items[len(items)-1]
+		v = items[len(items)-1]
 	}
-	if version == "v"+version {
+	if v == "v"+version {
 		fmt.Printf("You are using the latest version of %s\n", app)
 	} else {
-		fmt.Printf("New version available: %s %s at %s\n", app, version, resp.Request.URL.String())
+		fmt.Printf("New version available: %s %s at %s\n", app, v, resp.Request.URL.String())
 	}
 }
 

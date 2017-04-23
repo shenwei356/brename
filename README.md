@@ -24,7 +24,7 @@
 ## Features
 
 - **Cross-platform**. Supporting Windows, Mac OS X and Linux.
-- **Safe**. By checking potential conflicts and errors.
+- **Safe**. By ***checking potential conflicts and errors***.
 - **Supporting dry run**.
 
 ## Installation
@@ -78,7 +78,7 @@ And then:
 ```
 brename -- a cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.0
+Version: v2.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
