@@ -37,7 +37,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.0"
+var version = "2.1"
 var app = "brename"
 
 // Options is the struct containing all global options
@@ -52,6 +52,11 @@ type Options struct {
 	Recursive    bool
 	IncludingDir bool
 	IgnoreCase   bool
+
+	IncludeFilters   []string
+	ExcludeFilters   []string
+	IncludeFilterRes []*regexp.Regexp
+	ExcludeFilterRes []*regexp.Regexp
 }
 
 func getOptions(cmd *cobra.Command) *Options {
@@ -76,6 +81,36 @@ func getOptions(cmd *cobra.Command) *Options {
 		os.Exit(1)
 	}
 
+	infilters := getFlagStringSlice(cmd, "include-filters")
+	infilterRes := make([]*regexp.Regexp, 0, 10)
+	for _, infilter := range infilters {
+		if infilter == "" {
+			log.Errorf("value of flag -f/--include-filters missing")
+			os.Exit(1)
+		}
+		infilterRe, err := regexp.Compile("(?i)" + infilter)
+		if err != nil {
+			log.Errorf("illegal regular expression for include filter: %s", infilter)
+			os.Exit(1)
+		}
+		infilterRes = append(infilterRes, infilterRe)
+	}
+
+	exfilters := getFlagStringSlice(cmd, "exclude-filters")
+	exfilterRes := make([]*regexp.Regexp, 0, 10)
+	for _, exfilter := range exfilters {
+		if exfilter == "" {
+			log.Errorf("value of flag -F/--exclude-filters missing")
+			os.Exit(1)
+		}
+		exfilterRe, err := regexp.Compile("(?i)" + exfilter)
+		if err != nil {
+			log.Errorf("illegal regular expression for exclude filter: %s", exfilter)
+			os.Exit(1)
+		}
+		exfilterRes = append(exfilterRes, exfilterRe)
+	}
+
 	return &Options{
 		Verbose: getFlagNonNegativeInt(cmd, "verbose"),
 		Version: version,
@@ -86,6 +121,11 @@ func getOptions(cmd *cobra.Command) *Options {
 		Replacement:  getFlagString(cmd, "replacement"),
 		Recursive:    getFlagBool(cmd, "recursive"),
 		IncludingDir: getFlagBool(cmd, "including-dir"),
+
+		IncludeFilters:   infilters,
+		IncludeFilterRes: infilterRes,
+		ExcludeFilters:   infilters,
+		ExcludeFilterRes: exfilterRes,
 	}
 }
 
@@ -106,16 +146,21 @@ func init() {
 	RootCmd.Flags().BoolP("including-dir", "D", false, "rename directories")
 	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case")
 
+	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
+	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
+
 	RootCmd.Example = `  1. dry run and showing potential dangerous operations
       brename -p "abc" -d
   2. dry run and only show operations that will cause error
       brename -p "abc" -d -v 2
-  3. renaming all .jpeg files to .jpg in all subdirectories
+  3. only renaming specific paths via include filters
+      brename -p ":" -r "-" -f ".htm$" -f ".html$"
+  4. renaming all .jpeg files to .jpg in all subdirectories
       brename -p "\.jpeg" -r ".jpg" -R   dir
-  4. using capture variables, e.g., $1, $2 ...
+  5. using capture variables, e.g., $1, $2 ...
       brename -p "(a)" -r "\$1\$1"
       or brename -p "(a)" -r '$1$1' in Linux/Mac OS X
-  5. renaming directory too
+  6. renaming directory too
       brename -p ":" -r "-" -R -D   pdf-dirs
 
   More examples: https://github.com/shenwei356/brename`
@@ -191,6 +236,12 @@ func getFlagString(cmd *cobra.Command, flag string) string {
 	return value
 }
 
+func getFlagStringSlice(cmd *cobra.Command, flag string) []string {
+	value, err := cmd.Flags().GetStringSlice(flag)
+	checkError(err)
+	return value
+}
+
 func getFlagNonNegativeInt(cmd *cobra.Command, flag string) int {
 	value, err := cmd.Flags().GetInt(flag)
 	checkError(err)
@@ -236,8 +287,11 @@ Author: Wei Shen <shenwei356@gmail.com>
 Homepage: https://github.com/shenwei356/brename
 
 Attention:
-  1. Paths starting with "." is ignored
-  2. Overwriting existed files is not allowed
+  1. Paths starting with "." is ignored.
+  2. Overwriting existed files is not allowed.
+  3. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
+     e.g., -f ".html" -f ".htm".
+     But ATTENTION: comma in filter is treated as separater of multiple filters.
 
 `, version),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -392,6 +446,20 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	return true, operation{path, filepath.Join(dir, filename2), codeOK}
 }
 
+func ignore(opt *Options, path string) bool {
+	for _, re := range opt.ExcludeFilterRes {
+		if re.MatchString(path) {
+			return true
+		}
+	}
+	for _, re := range opt.IncludeFilterRes {
+		if re.MatchString(path) {
+			return false
+		}
+	}
+	return true
+}
+
 func walk(opt *Options, opCh chan<- operation, path string) error {
 	_, err := ioutil.ReadFile(path)
 	// it's a file
@@ -409,8 +477,10 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 	}
 
 	var filename string
+
 	for _, file := range files {
 		filename = file.Name()
+
 		if filename[0] == '.' {
 			continue
 		}
@@ -431,6 +501,9 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 				}
 			}
 		} else {
+			if ignore(opt, filename) {
+				continue
+			}
 			if ok, op := checkOperation(opt, fileFullPath); ok {
 				opCh <- op
 			}
