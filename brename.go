@@ -115,7 +115,7 @@ func init() {
   4. using capture variables, e.g., $1, $2 ...
       brename -p "(a)" -r "\$1\$1"
       or brename -p "(a)" -r '$1$1' in Linux/Mac OS X
-  5. even renaming directory
+  5. renaming directory too
       brename -p ":" -r "-" -R -D   pdf-dirs
 
   More examples: https://github.com/shenwei356/brename`

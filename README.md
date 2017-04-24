@@ -130,8 +130,8 @@ For directory:
     ├── a.jpeg
     └── b.jpeg
 
-1. Renaming all `.jpeg` files to `.jpg` in all subdirectories.
- A dry run is firstly performed for safety.
+1. Recursively renaming all `.jpeg` files to `.jpg` in all subdirectories (`-R/--recursive`).
+ A dry run is firstly performed for safety checking (`-d/--dry-run`).
 
         $ brename -p "\.jpeg" -r ".jpg" -R -d
         [INFO] checking: a.jpeg -> a.jpg [ok]
@@ -154,10 +154,10 @@ For directory:
         ├── a.jpg
         └── b.jpg
 
-1. dry run and only show operations that will cause error
+1. Dry run and only showing operations that will cause error (`-v/--verbose`)
 
         # default value of -v is 0
-        $ ../brename -p a -r b -R -D -d
+        $ brename -p a -r b -R -D -d
         [INFO] checking: a.jpeg -> b.jpeg [new path existed]
         [INFO] checking: abc -> bbc [ok]
         [ERRO] 1 potential errors detected, please check
@@ -166,7 +166,7 @@ For directory:
         [INFO] checking: a.jpeg -> b.jpeg [new path existed]
         [ERRO] 1 potential errors detected, please check
 
-1. ignore cases
+1. Ignoring cases (`-i/--ignore-case`)
 
         $ brename -p "\.jpeg" -r ".jpg" -R -i
         [INFO] checking: abc/A.JPEG -> abc/A.jpg [ok]
@@ -184,7 +184,7 @@ For directory:
         ├── a.jpg
         └── b.jpg
 
-1. using capture variables, e.g., $1, $2 ...
+1. Using capture variables, e.g., $1, $2 ...
 
         # or brename -p "(a)" -r '$1$1' in Linux/Mac OS X
         $ brename -p "(a)" -r "\$1\$1"
@@ -202,7 +202,7 @@ For directory:
         └── b.jpg
 
 
-1. even renaming directory
+1. Renaming directory too (`-D/--including-dir`)
 
         $ brename -p "a" -r "A" -R -D
         [INFO] checking: aa.jpg -> AA.jpg [ok]
