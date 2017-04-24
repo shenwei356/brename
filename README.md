@@ -212,7 +212,7 @@ Take a directory for example:
         [INFO] renamed: a.jpg -> aa.jpg
         [INFO] 1 paths renamed
 
-        $ tree                               
+        $ tree
         .
         ├── aa.jpg
         ├── abc
@@ -233,7 +233,7 @@ Take a directory for example:
         [INFO] renamed: abc -> Abc
         [INFO] 2 paths renamed
 
-        $ tree                       
+        $ tree
         .
         ├── AA.jpg
         ├── Abc
@@ -243,7 +243,7 @@ Take a directory for example:
         ├── b.html
         └── b.jpg
 
-1. Only renaming specific files via include filters (`-f/--include-filters`)
+1. Only renaming specific files via include filters (regular expression) (`-f/--include-filters`)
 
         $ brename -p "^" -r "hello " -f ".htm$" -f ".html$" -R
         [INFO] checking: Abc/B.HTM -> Abc/hello B.HTM [ok]
@@ -263,7 +263,7 @@ Take a directory for example:
         ├── b.jpg
         └── hello\ b.html
 
-1. Excluding files exclude filters (`-F/--exclude-filters`)
+1. Excluding files via exclude filters (regular expression) (`-F/--exclude-filters`)
 
         $ brename -p b -r c -d
         [INFO] checking: b.jpg -> c.jpg [ok]
