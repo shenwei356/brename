@@ -211,7 +211,6 @@ Take a directory for example:
         [INFO] 1 path(s) to be renamed
         [INFO] renamed: 'a.jpg' -> 'aa.jpg'
         [INFO] 1 path(s) renamed
-        ➜  t.test git:(master)
 
         $ tree
         .
