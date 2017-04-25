@@ -37,7 +37,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.1"
+var version = "2.1.1"
 var app = "brename"
 
 // Options is the struct containing all global options
@@ -312,10 +312,19 @@ Attention:
 		go func() {
 			for op := range opCH {
 				if int(op.code) >= opt.Verbose {
-					log.Infof("checking: %s\n", op)
+					switch op.code {
+					case codeOK:
+						log.Infof("checking: %s\n", op)
+					case codeUnchanged:
+						log.Warningf("checking: %s\n", op)
+					case codeExisted:
+						log.Errorf("checking: %s\n", op)
+					case codeMissingTarget:
+						log.Errorf("checking: %s\n", op)
+					}
 				}
 
-				switch int(op.code) {
+				switch op.code {
 				case 0:
 					ops = append(ops, op)
 					n++
@@ -341,11 +350,11 @@ Attention:
 		<-done
 
 		if hasErr {
-			log.Errorf("%d potential errors detected, please check", nErr)
+			log.Errorf("%d potential error(s) detected, please check", nErr)
 			os.Exit(1)
 		}
 
-		log.Infof("%d paths to be renamed", n)
+		log.Infof("%d path(s) to be renamed", n)
 		if n == 0 {
 			return
 		}
@@ -358,14 +367,14 @@ Attention:
 		for _, op := range ops {
 			err := os.Rename(op.source, op.target)
 			if err != nil {
-				log.Errorf("fail to rename: %s -> %s", op.source, op.target)
+				log.Errorf(`fail to rename: '%s' -> '%s'`, op.source, op.target)
 				os.Exit(1)
 			}
-			log.Infof("renamed: %s -> %s", op.source, op.target)
+			log.Infof("renamed: '%s' -> '%s'", op.source, op.target)
 			n2++
 		}
 
-		log.Infof("%d paths renamed", n2)
+		log.Infof("%d path(s) renamed", n2)
 	},
 }
 
@@ -419,7 +428,7 @@ type operation struct {
 }
 
 func (op operation) String() string {
-	return fmt.Sprintf("%s -> %s [%s]", op.source, op.target, op.code)
+	return fmt.Sprintf(`[ %s ] '%s' -> '%s'`, op.code, op.source, op.target)
 }
 
 func checkOperation(opt *Options, path string) (bool, operation) {

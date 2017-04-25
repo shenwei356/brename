@@ -81,7 +81,7 @@ And then:
 ```
 brename -- a cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.1
+Version: 2.1.1
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -148,17 +148,17 @@ Take a directory for example:
  A dry run is firstly performed for safety checking (`-d/--dry-run`).
 
         $ brename -p "\.jpeg" -r ".jpg" -R -d
-        [INFO] checking: a.jpeg -> a.jpg [ok]
-        [INFO] checking: b.jpeg -> b.jpg [ok]
-        [INFO] 2 paths to be renamed
+        [INFO] checking: [ ok ] 'a.jpeg' -> 'a.jpg'
+        [INFO] checking: [ ok ] 'b.jpeg' -> 'b.jpg'
+        [INFO] 2 path(s) to be renamed
 
         $ brename -p "\.jpeg" -r ".jpg" -R
-        [INFO] checking: a.jpeg -> a.jpg [ok]
-        [INFO] checking: b.jpeg -> b.jpg [ok]
-        [INFO] 2 paths to be renamed
-        [INFO] renamed: a.jpeg -> a.jpg
-        [INFO] renamed: b.jpeg -> b.jpg
-        [INFO] 2 paths renamed
+        [INFO] checking: [ ok ] 'a.jpeg' -> 'a.jpg'
+        [INFO] checking: [ ok ] 'b.jpeg' -> 'b.jpg'
+        [INFO] 2 path(s) to be renamed
+        [INFO] renamed: 'a.jpeg' -> 'a.jpg'
+        [INFO] renamed: 'b.jpeg' -> 'b.jpg'
+        [INFO] 2 path(s) renamed
 
         $ tree
         .
@@ -174,24 +174,24 @@ Take a directory for example:
 1. Dry run and only showing operations that will cause error (`-v/--verbose`)
 
         # default value of -v is 0
-        $ brename -p a -r b -R -d
-        [INFO] checking: a.jpeg -> b.jpeg [new path existed]
-        [INFO] checking: abc -> bbc [ok]
-        [ERRO] 1 potential errors detected, please check
+        $ brename -p a -r b -R -D -d
+        [ERRO] checking: [ new path existed ] 'a.jpg' -> 'b.jpg'
+        [INFO] checking: [ ok ] 'abc' -> 'bbc'
+        [ERRO] 1 potential error(s) detected, please check
 
         $ brename -p a -r b -R -D -d -v 2
-        [INFO] checking: a.jpeg -> b.jpeg [new path existed]
-        [ERRO] 1 potential errors detected, please check
+        [ERRO] checking: [ new path existed ] 'a.jpg' -> 'b.jpg'
+        [ERRO] 1 potential error(s) detected, please check
 
 1. Ignoring cases (`-i/--ignore-case`)
 
         $ brename -p "\.jpeg" -r ".jpg" -R -i
-        [INFO] checking: abc/A.JPEG -> abc/A.jpg [ok]
-        [INFO] checking: abc/B.JPEG -> abc/B.jpg [ok]
-        [INFO] 2 paths to be renamed
-        [INFO] renamed: abc/A.JPEG -> abc/A.jpg
-        [INFO] renamed: abc/B.JPEG -> abc/B.jpg
-        [INFO] 2 paths renamed
+        [INFO] checking: [ ok ] 'abc/A.JPEG' -> 'abc/A.jpg'
+        [INFO] checking: [ ok ] 'abc/B.JPEG' -> 'abc/B.jpg'
+        [INFO] 2 path(s) to be renamed
+        [INFO] renamed: 'abc/A.JPEG' -> 'abc/A.jpg'
+        [INFO] renamed: 'abc/B.JPEG' -> 'abc/B.jpg'
+        [INFO] 2 path(s) renamed
 
         $ tree
         .
@@ -207,10 +207,11 @@ Take a directory for example:
 
         # or brename -p "(a)" -r '$1$1' in Linux/Mac OS X
         $ brename -p "(a)" -r "\$1\$1" -i
-        [INFO] checking: a.jpg -> aa.jpg [ok]
-        [INFO] 1 paths to be renamed
-        [INFO] renamed: a.jpg -> aa.jpg
-        [INFO] 1 paths renamed
+        [INFO] checking: [ ok ] 'a.jpg' -> 'aa.jpg'
+        [INFO] 1 path(s) to be renamed
+        [INFO] renamed: 'a.jpg' -> 'aa.jpg'
+        [INFO] 1 path(s) renamed
+        ➜  t.test git:(master)
 
         $ tree
         .
@@ -226,12 +227,12 @@ Take a directory for example:
 1. Renaming directory too (`-D/--including-dir`)
 
         $ brename -p "a" -r "A" -R -D
-        [INFO] checking: aa.jpg -> AA.jpg [ok]
-        [INFO] checking: abc -> Abc [ok]
-        [INFO] 2 paths to be renamed
-        [INFO] renamed: aa.jpg -> AA.jpg
-        [INFO] renamed: abc -> Abc
-        [INFO] 2 paths renamed
+        [INFO] checking: [ ok ] 'aa.jpg' -> 'AA.jpg'
+        [INFO] checking: [ ok ] 'abc' -> 'Abc'
+        [INFO] 2 path(s) to be renamed
+        [INFO] renamed: 'aa.jpg' -> 'AA.jpg'
+        [INFO] renamed: 'abc' -> 'Abc'
+        [INFO] 2 path(s) renamed
 
         $ tree
         .
@@ -246,12 +247,12 @@ Take a directory for example:
 1. Only renaming specific files via include filters (regular expression) (`-f/--include-filters`)
 
         $ brename -p "^" -r "hello " -f ".htm$" -f ".html$" -R
-        [INFO] checking: Abc/B.HTM -> Abc/hello B.HTM [ok]
-        [INFO] checking: b.html -> hello b.html [ok]
-        [INFO] 2 paths to be renamed
-        [INFO] renamed: Abc/B.HTM -> Abc/hello B.HTM
-        [INFO] renamed: b.html -> hello b.html
-        [INFO] 2 paths renamed
+        [INFO] checking: [ ok ] 'Abc/B.HTM' -> 'Abc/hello B.HTM'
+        [INFO] checking: [ ok ] 'b.html' -> 'hello b.html'
+        [INFO] 2 path(s) to be renamed
+        [INFO] renamed: 'Abc/B.HTM' -> 'Abc/hello B.HTM'
+        [INFO] renamed: 'b.html' -> 'hello b.html'
+        [INFO] 2 path(s) renamed
 
         $ tree
         .
@@ -266,13 +267,13 @@ Take a directory for example:
 1. Excluding files via exclude filters (regular expression) (`-F/--exclude-filters`)
 
         $ brename -p b -r c -d
-        [INFO] checking: b.jpg -> c.jpg [ok]
-        [INFO] checking: hello b.html -> hello c.html [ok]
-        [INFO] 2 paths to be renamed
+        [INFO] checking: [ ok ] 'b.jpg' -> 'c.jpg'
+        [INFO] checking: [ ok ] 'hello b.html' -> 'hello c.html'
+        [INFO] 2 path(s) to be renamed
 
         $ brename -p b -r c -d -F '.html$'
-        [INFO] checking: b.jpg -> c.jpg [ok]
-        [INFO] 1 paths to be renamed
+        [INFO] checking: [ ok ] 'b.jpg' -> 'c.jpg'
+        [INFO] 2 path(s) to be renamed
 
 ## Contact
 
