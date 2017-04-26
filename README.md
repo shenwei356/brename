@@ -31,8 +31,10 @@
 - **Supporting dry run**.
 - **Colorful output**. Screenshots:
     - Linux
+
         ![linux](screenshot/linux.png)
     - Windows
+
         ![windows](screenshot/windows.png)
 
 ## Installation
