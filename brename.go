@@ -22,6 +22,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/mattn/go-colorable"
 	"github.com/op/go-logging"
 	"github.com/spf13/cobra"
 )
@@ -131,7 +133,11 @@ func getOptions(cmd *cobra.Command) *Options {
 
 func init() {
 	logFormat := logging.MustStringFormatter(`%{color}[%{level:.4s}]%{color:reset} %{message}`)
-	backend := logging.NewLogBackend(os.Stderr, "", 0)
+	var stderr io.Writer = os.Stderr
+	if isWindows {
+		stderr = colorable.NewColorableStderr()
+	}
+	backend := logging.NewLogBackend(stderr, "", 0)
 	backendFormatter := logging.NewBackendFormatter(backend, logFormat)
 	logging.SetBackend(backendFormatter)
 	log = logging.MustGetLogger(app)
@@ -394,19 +400,6 @@ var green = color.New(color.FgGreen).SprintFunc()
 var isWindows = runtime.GOOS == "windows"
 
 func (c code) String() string {
-	if isWindows {
-		switch c {
-		case codeOK:
-			return "ok"
-		case codeUnchanged:
-			return "unchanged"
-		case codeExisted:
-			return "new path existed"
-		case codeMissingTarget:
-			return "missing target"
-		}
-	}
-
 	switch c {
 	case codeOK:
 		return green("ok")
