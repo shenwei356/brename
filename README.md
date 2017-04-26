@@ -30,8 +30,10 @@
 - **Recursively renaming both files and directories**.
 - **Supporting dry run**.
 - **Colorful output**. Screenshots:
-    ![linux](screenshot/linux.png)
-    ![windows](screenshot/windows.png)
+    - Linux
+        ![linux](screenshot/linux.png)
+    - Windows
+        ![windows](screenshot/windows.png)
 
 ## Installation
 
