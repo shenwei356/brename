@@ -33,13 +33,13 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
-	"github.com/op/go-logging"
+	"github.com/shenwei356/go-logging"
 	"github.com/spf13/cobra"
 )
 
 var log *logging.Logger
 
-var version = "2.1.1"
+var version = "2.1.2"
 var app = "brename"
 
 // Options is the struct containing all global options
@@ -134,7 +134,7 @@ func getOptions(cmd *cobra.Command) *Options {
 func init() {
 	logFormat := logging.MustStringFormatter(`%{color}[%{level:.4s}]%{color:reset} %{message}`)
 	var stderr io.Writer = os.Stderr
-	if isWindows {
+	if runtime.GOOS == "windows" {
 		stderr = colorable.NewColorableStderr()
 	}
 	backend := logging.NewLogBackend(stderr, "", 0)
@@ -396,8 +396,6 @@ const (
 var yellow = color.New(color.FgYellow).SprintFunc()
 var red = color.New(color.FgRed).SprintFunc()
 var green = color.New(color.FgGreen).SprintFunc()
-
-var isWindows = runtime.GOOS == "windows"
 
 func (c code) String() string {
 	switch c {
