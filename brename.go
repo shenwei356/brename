@@ -39,7 +39,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.1.2"
+var version = "2.1.3"
 var app = "brename"
 
 // Options is the struct containing all global options
@@ -431,7 +431,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 
 	filename2 := opt.PatternRe.ReplaceAllString(filename, opt.Replacement)
 	if filename2 == "" {
-		return true, operation{path, filename2, codeMissingTarget}
+		return true, operation{path, filepath.Join(dir, filename2), codeMissingTarget}
 	}
 
 	if filename2 == filename {
@@ -495,7 +495,7 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 				}
 			}
 			// rename directories
-			if opt.IncludingDir {
+			if opt.IncludingDir && !ignore(opt, filename) {
 				if ok, op := checkOperation(opt, fileFullPath); ok {
 					opCh <- op
 				}
