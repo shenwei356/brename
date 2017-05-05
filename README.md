@@ -28,8 +28,8 @@
 - **Safe**. By ***checking potential conflicts and errors***.
 - **File filtering**. Supporting including and excluding files via regular expression.
     No need to run commands like `find ./ -name "*.html" -exec CMD`.
-- **Renaming submatch with corresponding value via key-value file**
-- **Renaming via ascending integer**
+- **Renaming submatch with corresponding value via key-value file**.
+- **Renaming via ascending integer**.
 - **Recursively renaming both files and directories**.
 - **Supporting dry run**.
 - **Colorful output**. Screenshots:
@@ -51,6 +51,7 @@
 [brename v2.2.0](https://github.com/shenwei356/brename/releases/tag/v2.2.0)
 [![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.2.0/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.2.0)
 
+***Tip: run `brename -V` to check update !!!***
 
 OS     |Arch      |File, (mirror为中国用户下载镜像链接)                                                                                                                                                                         |Download Count
 :------|:---------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
