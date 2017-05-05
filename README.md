@@ -16,6 +16,7 @@
 - [Installation](#installation)
 - [Usage](#usage)
 - [Examples](#examples)
+- [Real-world examples](#real-world-examples)
 - [Contact](#contact)
 - [License](#license)
 
@@ -280,6 +281,49 @@ Take a directory for example:
         $ brename -p b -r c -d -F '.html$'
         [INFO] checking: [ ok ] 'b.jpg' -> 'c.jpg'
         [INFO] 2 path(s) to be renamed
+
+## Real-world examples
+
+1. Renaming PDF files for compatibility (moving from `EXT4` to `NTFS` file system):
+
+    1. Original files:
+
+            $ tree -Q
+            .
+            ├── "0000 Test.pdf"
+            ├── "2016 SeqKit _ A Cross-Platform and Ultrafast Toolkit for FASTA\342\201\204Q File Manipulation .pdf"
+            ├── "metagenomics"
+            │   ├── "2017 16S rRNA gene sequencing and healthy reference ranges for 28 clinically relevant microbial taxa from the human gut microbiome .pdf"
+            │   ├── "2017 De novo assembly of viral quasispecies using overlap graphs .pdf"
+            │   └── "2017 Tracking microbial colonization in fecal microbiota transplantation experiments via genome-resolved metagenomics .pdf"
+            ├── "test2222222222222222222211111111122222222222222222233333333.pdf"
+            └── "test.pdf"
+
+
+    1. Removing "\n"
+
+            $ brename -p "\n" -r " " -R
+
+    1. Replacing ":" with "_"
+
+            $ brename -p ":" -r " _" -R
+
+    1. Shortening file names (prefering spliting with space)
+
+            $ brename -R -f .pdf -i -p "^(.{30,50})[ \.].*.pdf" -r "\$1.pdf" -d
+
+    1. Result:
+
+            $ tree -Q
+            .
+            ├── "0000 Test.pdf"
+            ├── "2016 SeqKit _ A Cross-Platform and Ultrafast.pdf"
+            ├── "metagenomics"
+            │   ├── "2017 16S rRNA gene sequencing and healthy.pdf"
+            │   ├── "2017 De novo assembly of viral quasispecies using.pdf"
+            │   └── "2017 Tracking microbial colonization in fecal.pdf"
+            ├── "test2222222222222222222211111111122222222222222222233333333.pdf"
+            └── "test.pdf"
 
 ## Contact
 
