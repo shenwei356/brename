@@ -29,17 +29,19 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
+	"github.com/shenwei356/breader"
 	"github.com/shenwei356/go-logging"
 	"github.com/spf13/cobra"
 )
 
 var log *logging.Logger
 
-var version = "2.1.3"
+var version = "2.2.0"
 var app = "brename"
 
 // Options is the struct containing all global options
@@ -59,7 +61,20 @@ type Options struct {
 	ExcludeFilters   []string
 	IncludeFilterRes []*regexp.Regexp
 	ExcludeFilterRes []*regexp.Regexp
+
+	ReplaceWithNR bool
+	StartNum      int
+
+	ReplaceWithKV bool
+	KVs           map[string]string
+	KVFile        string
+	KeepKey       bool
+	KeyCaptIdx    int
+	KeyMissRepl   string
 }
+
+var reNR = regexp.MustCompile(`\{(NR|nr)\}`)
+var reKV = regexp.MustCompile(`\{(KV|kv)\}`)
 
 func getOptions(cmd *cobra.Command) *Options {
 	version := getFlagBool(cmd, "version")
@@ -74,7 +89,8 @@ func getOptions(cmd *cobra.Command) *Options {
 		os.Exit(1)
 	}
 	p := pattern
-	if getFlagBool(cmd, "ignore-case") {
+	ignoreCase := getFlagBool(cmd, "ignore-case")
+	if ignoreCase {
 		p = "(?i)" + p
 	}
 	re, err := regexp.Compile(p)
@@ -113,6 +129,45 @@ func getOptions(cmd *cobra.Command) *Options {
 		exfilterRes = append(exfilterRes, exfilterRe)
 	}
 
+	replacement := getFlagString(cmd, "replacement")
+	kvFile := getFlagString(cmd, "kv-file")
+
+	if kvFile != "" {
+		if len(replacement) == 0 {
+			checkError(fmt.Errorf("flag -r/--replacement needed when given flag -k/--kv-file"))
+		}
+		if !reKV.MatchString(replacement) {
+			checkError(fmt.Errorf(`replacement symbol "{kv}"/"{KV}" not found in value of flag -r/--replacement when flag -k/--kv-file given`))
+		}
+	}
+
+	var replaceWithNR bool
+	if reNR.MatchString(replacement) {
+		replaceWithNR = true
+	}
+
+	var replaceWithKV bool
+	var kvs map[string]string
+	if reKV.MatchString(replacement) {
+		replaceWithKV = true
+		if !regexp.MustCompile(`\(.+\)`).MatchString(pattern) {
+			checkError(fmt.Errorf(`value of -p/--pattern must contains "(" and ")" to capture data which is used specify the KEY`))
+		}
+		if kvFile == "" {
+			checkError(fmt.Errorf(`since replacement symbol "{kv}"/"{KV}" found in value of flag -r/--replacement, tab-delimited key-value file should be given by flag -k/--kv-file`))
+		}
+		log.Infof("read key-value file: %s", kvFile)
+		kvs, err = readKVs(kvFile, ignoreCase)
+		if err != nil {
+			checkError(fmt.Errorf("read key-value file: %s", err))
+		}
+		if len(kvs) == 0 {
+			checkError(fmt.Errorf("no valid data in key-value file: %s", kvFile))
+		}
+
+		log.Infof("%d pairs of key-value loaded", len(kvs))
+	}
+
 	return &Options{
 		Verbose: getFlagNonNegativeInt(cmd, "verbose"),
 		Version: version,
@@ -120,14 +175,25 @@ func getOptions(cmd *cobra.Command) *Options {
 
 		Pattern:      pattern,
 		PatternRe:    re,
-		Replacement:  getFlagString(cmd, "replacement"),
+		Replacement:  replacement,
 		Recursive:    getFlagBool(cmd, "recursive"),
 		IncludingDir: getFlagBool(cmd, "including-dir"),
+		IgnoreCase:   ignoreCase,
 
 		IncludeFilters:   infilters,
 		IncludeFilterRes: infilterRes,
 		ExcludeFilters:   infilters,
 		ExcludeFilterRes: exfilterRes,
+
+		ReplaceWithNR: replaceWithNR,
+		StartNum:      getFlagNonNegativeInt(cmd, "start-num"),
+		ReplaceWithKV: replaceWithKV,
+
+		KVs:         kvs,
+		KVFile:      kvFile,
+		KeepKey:     getFlagBool(cmd, "keep-key"),
+		KeyCaptIdx:  getFlagPositiveInt(cmd, "key-capt-idx"),
+		KeyMissRepl: getFlagString(cmd, "key-miss-repl"),
 	}
 }
 
@@ -147,13 +213,20 @@ func init() {
 	RootCmd.Flags().BoolP("dry-run", "d", false, "print rename operations but do not run")
 
 	RootCmd.Flags().StringP("pattern", "p", "", "search pattern (regular expression)")
-	RootCmd.Flags().StringP("replacement", "r", "", `replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character.`)
+	RootCmd.Flags().StringP("replacement", "r", "", `replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"`)
 	RootCmd.Flags().BoolP("recursive", "R", false, "rename recursively")
 	RootCmd.Flags().BoolP("including-dir", "D", false, "rename directories")
 	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case")
 
 	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
 	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
+
+	RootCmd.Flags().StringP("kv-file", "k", "",
+		`tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)`)
+	RootCmd.Flags().BoolP("keep-key", "K", false, "keep the key as value when no value found for the key")
+	RootCmd.Flags().IntP("key-capt-idx", "I", 1, "capture variable index of key (1-based)")
+	RootCmd.Flags().StringP("key-miss-repl", "m", "", "replacement for key with no corresponding value")
+	RootCmd.Flags().IntP("start-num", "n", 1, `starting number when using {nr} in replacement`)
 
 	RootCmd.Example = `  1. dry run and showing potential dangerous operations
       brename -p "abc" -d
@@ -168,6 +241,8 @@ func init() {
       or brename -p "(a)" -r '$1$1' in Linux/Mac OS X
   6. renaming directory too
       brename -p ":" -r "-" -R -D   pdf-dirs
+  7. using key-value file
+      brename -p "(.+)" -r "{kv}" -k kv.tsv
 
   More examples: https://github.com/shenwei356/brename`
 
@@ -248,6 +323,15 @@ func getFlagStringSlice(cmd *cobra.Command, flag string) []string {
 	return value
 }
 
+func getFlagPositiveInt(cmd *cobra.Command, flag string) int {
+	value, err := cmd.Flags().GetInt(flag)
+	checkError(err)
+	if value <= 0 {
+		checkError(fmt.Errorf("value of flag --%s should be greater than 0", flag))
+	}
+	return value
+}
+
 func getFlagNonNegativeInt(cmd *cobra.Command, flag string) int {
 	value, err := cmd.Flags().GetInt(flag)
 	checkError(err)
@@ -284,7 +368,7 @@ var RootCmd = &cobra.Command{
 	Use:   app,
 	Short: "a cross-platform command-line tool for safely batch renaming files/directories via regular expression",
 	Long: fmt.Sprintf(`
-brename -- a cross-platform command-line tool for safely batch renaming files/directories via regular expression
+brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
 Version: %s
 
@@ -298,6 +382,13 @@ Attention:
   3. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
      e.g., -f ".html" -f ".htm".
      But ATTENTION: comma in filter is treated as separater of multiple filters.
+
+Special replacement symbols:
+
+  {nr}    Ascending integer
+  {kv}    Corresponding value of the key (captured variable $n) by key-value file,
+          n can be specified by flag -I/--key-capt-idx (default: 1)
+
 
 `, version),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -429,7 +520,35 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		return false, operation{}
 	}
 
-	filename2 := opt.PatternRe.ReplaceAllString(filename, opt.Replacement)
+	r := opt.Replacement
+
+	if opt.ReplaceWithNR {
+		r = reNR.ReplaceAllString(r, strconv.Itoa(opt.StartNum))
+		opt.StartNum++
+	}
+
+	if opt.ReplaceWithKV {
+		founds := opt.PatternRe.FindAllStringSubmatch(filename, -1)
+		if len(founds) > 0 {
+			found := founds[0]
+			if opt.KeyCaptIdx > len(found)-1 {
+				checkError(fmt.Errorf("value of flag -I/--key-capt-idx overflows"))
+			}
+			k := found[opt.KeyCaptIdx]
+			if opt.IgnoreCase {
+				k = strings.ToLower(k)
+			}
+			if _, ok := opt.KVs[k]; ok {
+				r = reKV.ReplaceAllString(r, opt.KVs[k])
+			} else if opt.KeepKey {
+				r = reKV.ReplaceAllString(r, found[opt.KeyCaptIdx])
+			} else {
+				r = reKV.ReplaceAllString(r, opt.KeyMissRepl)
+			}
+		}
+	}
+
+	filename2 := opt.PatternRe.ReplaceAllString(filename, r)
 	if filename2 == "" {
 		return true, operation{path, filepath.Join(dir, filename2), codeMissingTarget}
 	}
@@ -511,4 +630,37 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 	}
 
 	return nil
+}
+
+func readKVs(file string, ignoreCase bool) (map[string]string, error) {
+	type KV [2]string
+	fn := func(line string) (interface{}, bool, error) {
+		if len(line) == 0 {
+			return nil, false, nil
+		}
+		items := strings.Split(strings.TrimRight(line, "\r\n"), "\t")
+		if len(items) < 2 {
+			return nil, false, nil
+		}
+		if ignoreCase {
+			return KV([2]string{strings.ToLower(items[0]), items[1]}), true, nil
+		}
+		return KV([2]string{items[0], items[1]}), true, nil
+	}
+	kvs := make(map[string]string)
+	reader, err := breader.NewBufferedReader(file, 2, 10, fn)
+	if err != nil {
+		return kvs, err
+	}
+	var items KV
+	for chunk := range reader.Ch {
+		if chunk.Err != nil {
+			return kvs, err
+		}
+		for _, data := range chunk.Data {
+			items = data.(KV)
+			kvs[items[0]] = items[1]
+		}
+	}
+	return kvs, nil
 }

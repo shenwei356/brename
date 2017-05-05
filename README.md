@@ -1,4 +1,4 @@
-# brename -- a cross-platform command-line tool for safely batch renaming files/directories via regular expression
+# brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
 [![Built with GoLang](https://img.shields.io/badge/powered_by-go-6362c2.svg?style=flat)](https://golang.org)
 [![Go Report Card](https://goreportcard.com/badge/github.com/shenwei356/brename)](https://goreportcard.com/report/github.com/shenwei356/brename)
@@ -28,6 +28,8 @@
 - **Safe**. By ***checking potential conflicts and errors***.
 - **File filtering**. Supporting including and excluding files via regular expression.
     No need to run commands like `find ./ -name "*.html" -exec CMD`.
+- **Renaming submatch with corresponding value via key-value file**
+- **Renaming via ascending integer**
 - **Recursively renaming both files and directories**.
 - **Supporting dry run**.
 - **Colorful output**. Screenshots:
@@ -46,18 +48,18 @@
 
 #### Method 1: Download binaries
 
-[brename v2.1.3](https://github.com/shenwei356/brename/releases/tag/v2.1.3)
-[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.1.3/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.1.3)
+[brename v2.2.0](https://github.com/shenwei356/brename/releases/tag/v2.2.0)
+[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.2.0/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.2.0)
 
 
 OS     |Arch      |File, (mirror为中国用户下载镜像链接)                                                                                                                                                                         |Download Count
 :------|:---------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_linux_386.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_linux_386.tar.gz))                            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_linux_386.tar.gz)
-Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_linux_amd64.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_linux_amd64.tar.gz))                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_linux_amd64.tar.gz)
-OS X   |32-bit    |[brename_darwin_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_darwin_386.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_darwin_386.tar.gz))                         |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_darwin_386.tar.gz)
-OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_darwin_amd64.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_darwin_amd64.tar.gz))               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_darwin_amd64.tar.gz)
-Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_windows_386.exe.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_windows_386.exe.tar.gz))          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_windows_386.exe.tar.gz)
-Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_windows_amd64.exe.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_windows_amd64.exe.tar.gz))|[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.1.3/brename_windows_amd64.exe.tar.gz)
+Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_linux_386.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_linux_386.tar.gz))                            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_linux_386.tar.gz)
+Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_linux_amd64.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_linux_amd64.tar.gz))                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_linux_amd64.tar.gz)
+OS X   |32-bit    |[brename_darwin_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_darwin_386.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_darwin_386.tar.gz))                         |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_darwin_386.tar.gz)
+OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_darwin_amd64.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_darwin_amd64.tar.gz))               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_darwin_amd64.tar.gz)
+Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_windows_386.exe.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_windows_386.exe.tar.gz))          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_windows_386.exe.tar.gz)
+Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_windows_amd64.exe.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_windows_amd64.exe.tar.gz))|[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.2.0/brename_windows_amd64.exe.tar.gz)
 
 
 Just [download](https://github.com/shenwei356/brename/releases) compressed
@@ -87,9 +89,9 @@ And then:
 ## Usage
 
 ```
-brename -- a cross-platform command-line tool for safely batch renaming files/directories via regular expression
+brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.1.3
+Version: 2.2.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -101,6 +103,12 @@ Attention:
   3. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
      e.g., -f ".html" -f ".htm".
      But ATTENTION: comma in filter is treated as separater of multiple filters.
+
+Special replacement symbols:
+
+  {nr}    Ascending integer
+  {kv}    Corresponding value of the key (captured variable $n) by key-value file,
+          n can be specified by flag -I/--key-capt-idx (default: 1)
 
 Usage:
   brename [flags]
@@ -119,6 +127,8 @@ Examples:
       or brename -p "(a)" -r '$1$1' in Linux/Mac OS X
   6. renaming directory too
       brename -p ":" -r "-" -R -D   pdf-dirs
+  7. using key-value file
+      brename -p "(.+)" -r "{kv}" -k kv.tsv
 
   More examples: https://github.com/shenwei356/brename
 
@@ -128,9 +138,14 @@ Flags:
   -i, --ignore-case                   ignore case
   -f, --include-filters stringSlice   include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters (default [.])
   -D, --including-dir                 rename directories
+  -K, --keep-key                      keep the key as value when no value found for the key
+  -I, --key-capt-idx int              capture variable index of key (1-based) (default 1)
+  -m, --key-miss-repl string          replacement for key with no corresponding value
+  -k, --kv-file string                tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)
   -p, --pattern string                search pattern (regular expression)
   -R, --recursive                     rename recursively
-  -r, --replacement string            replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character.
+  -r, --replacement string            replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"
+  -n, --start-num int                 starting number when using {nr} in replacement (default 1)
   -v, --verbose int                   verbose level (0 for all, 1 for warning and error, 2 for only error)
   -V, --version                       print version information and check for update
 
@@ -282,11 +297,68 @@ Take a directory for example:
         [INFO] checking: [ ok ] 'b.jpg' -> 'c.jpg'
         [INFO] 2 path(s) to be renamed
 
+1. Rename with number (-r `{nr}`)
+
+        $ brename -p '(.+)\.' -r 'pic-{nr}.' -f .jpg
+        [INFO] checking: [ ok ] 'AA.jpg' -> 'pic-1.jpg'
+        [INFO] checking: [ ok ] 'b.jpg' -> 'pic-2.jpg'
+        [INFO] 2 path(s) to be renamed
+
+1. Replace submatch with corresponding value via key-value file (`-k/--kv-file`)
+
+        $ more kv.tsv
+        a       一
+        b       二
+        c       三
+
+        $ brename -p '^(\w)' -r '{kv}' -k kv.tsv -K -i  -d
+        [INFO] read key-value file: kv.tsv
+        [INFO] 3 pairs of key-value loaded
+        [INFO] checking: [ ok ] 'AA.jpg' -> '一A.jpg'
+        [INFO] checking: [ ok ] 'b.jpg' -> '二.jpg'
+        [WARN] checking: [ unchanged ] 'hello b.html' -> 'hello b.html'
+        [WARN] checking: [ unchanged ] 'kv.tsv' -> 'kv.tsv'
+
+
 ## Real-world examples
+
+1. Replace matches with corresponding pairing values
+
+    1. Original files
+
+            $ tree
+            .
+            ├── barcodes.tsv
+            ├── tag_ATGCGTA.fasta
+            ├── tag_CCCCCCC.fasta
+            ├── tag_CGACGTC.fasta
+            ├── tag_TCATAGC.fasta
+            └── tag_TCTATAG.fasta
+
+    1. Tab-delimited key-value file. Notice that `CCCCCCC` is not in it.
+
+            $ cat barcodes.tsv
+            CGACGTC S1
+            ATGCGTA S2
+            TCTATAG S4
+            TCATAGC S3
+
+    1. Renaming tag as sample names, marking `unknown` for non-existing tag.
+
+            $ brename -p 'tag_(\w+)' -r '{kv}' -k barcodes.tsv -m unknown -d
+            [INFO] read key-value file: barcodes.tsv
+            [INFO] 4 pairs of key-value loaded
+            [INFO] checking: [ ok ] 'tag_ATGCGTA.fasta' -> 'S2.fasta'
+            [INFO] checking: [ ok ] 'tag_CCCCCCC.fasta' -> 'unknown.fasta'
+            [INFO] checking: [ ok ] 'tag_CGACGTC.fasta' -> 'S1.fasta'
+            [INFO] checking: [ ok ] 'tag_TCATAGC.fasta' -> 'S3.fasta'
+            [INFO] checking: [ ok ] 'tag_TCTATAG.fasta' -> 'S4.fasta'
+            [INFO] 5 path(s) to be renamed
+
 
 1. Renaming PDF files for compatibility (moving from `EXT4` to `NTFS` file system):
 
-    1. Original files:
+    1. Original files
 
             $ tree -Q
             .
@@ -312,7 +384,7 @@ Take a directory for example:
 
             $ brename -R -f .pdf -i -p "^(.{30,50})[ \.].*.pdf" -r "\$1.pdf" -d
 
-    1. Result:
+    1. Result
 
             $ tree -Q
             .
