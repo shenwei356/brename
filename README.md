@@ -86,6 +86,9 @@ And then:
 
     go get -u github.com/shenwei356/brename/
 
+#### Method 3: For ArchLinux AUR users
+
+    yaourt -S brename
 
 ## Usage
 
