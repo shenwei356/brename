@@ -635,10 +635,11 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 func readKVs(file string, ignoreCase bool) (map[string]string, error) {
 	type KV [2]string
 	fn := func(line string) (interface{}, bool, error) {
+		line = strings.TrimRight(line, "\r\n")
 		if len(line) == 0 {
 			return nil, false, nil
 		}
-		items := strings.Split(strings.TrimRight(line, "\r\n"), "\t")
+		items := strings.Split(line, "\t")
 		if len(items) < 2 {
 			return nil, false, nil
 		}
