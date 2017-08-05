@@ -41,7 +41,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.2.0"
+var version = "2.3.0"
 var app = "brename"
 
 // Options is the struct containing all global options
@@ -56,6 +56,7 @@ type Options struct {
 	Recursive    bool
 	IncludingDir bool
 	IgnoreCase   bool
+	IgnoreExt    bool
 
 	IncludeFilters   []string
 	ExcludeFilters   []string
@@ -179,6 +180,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		Recursive:    getFlagBool(cmd, "recursive"),
 		IncludingDir: getFlagBool(cmd, "including-dir"),
 		IgnoreCase:   ignoreCase,
+		IgnoreExt:    getFlagBool(cmd, "ignore-ext"),
 
 		IncludeFilters:   infilters,
 		IncludeFilterRes: infilterRes,
@@ -217,6 +219,7 @@ func init() {
 	RootCmd.Flags().BoolP("recursive", "R", false, "rename recursively")
 	RootCmd.Flags().BoolP("including-dir", "D", false, "rename directories")
 	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case")
+	RootCmd.Flags().BoolP("ignore-ext", "e", false, "ignore file extension. i.e., replacement does not change file extension")
 
 	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
 	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
@@ -243,6 +246,8 @@ func init() {
       brename -p ":" -r "-" -R -D   pdf-dirs
   7. using key-value file
       brename -p "(.+)" -r "{kv}" -k kv.tsv
+  8. do not touch file extension
+      brename -p ".+" -r "{nr}" -f .mkv -f .mp4 -e
 
   More examples: https://github.com/shenwei356/brename`
 
@@ -515,6 +520,11 @@ func (op operation) String() string {
 
 func checkOperation(opt *Options, path string) (bool, operation) {
 	dir, filename := filepath.Split(path)
+	var ext string
+	if opt.IgnoreExt {
+		ext = filepath.Ext(path)
+		filename = filename[0 : len(filename)-len(ext)]
+	}
 
 	if !opt.PatternRe.MatchString(filename) {
 		return false, operation{}
@@ -548,12 +558,12 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		}
 	}
 
-	filename2 := opt.PatternRe.ReplaceAllString(filename, r)
+	filename2 := opt.PatternRe.ReplaceAllString(filename, r) + ext
 	if filename2 == "" {
 		return true, operation{path, filepath.Join(dir, filename2), codeMissingTarget}
 	}
 
-	if filename2 == filename {
+	if filename2 == filename+ext {
 		return true, operation{path, filepath.Join(dir, filename2), codeUnchanged}
 	}
 

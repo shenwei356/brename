@@ -133,6 +133,8 @@ Examples:
       brename -p ":" -r "-" -R -D   pdf-dirs
   7. using key-value file
       brename -p "(.+)" -r "{kv}" -k kv.tsv
+  8. do not touch file extension
+      brename -p ".+" -r "{nr}" -f .mkv -f .mp4 -e
 
   More examples: https://github.com/shenwei356/brename
 
@@ -140,6 +142,7 @@ Flags:
   -d, --dry-run                       print rename operations but do not run
   -F, --exclude-filters stringSlice   exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters
   -i, --ignore-case                   ignore case
+  -e, --ignore-ext                    ignore file extension. i.e., replacement does not change file extension
   -f, --include-filters stringSlice   include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters (default [.])
   -D, --including-dir                 rename directories
   -K, --keep-key                      keep the key as value when no value found for the key
