@@ -95,7 +95,7 @@ And then:
 ```
 brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.2.0
+Version: 2.3.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -326,6 +326,12 @@ Take a directory for example:
         [WARN] checking: [ unchanged ] 'hello b.html' -> 'hello b.html'
         [WARN] checking: [ unchanged ] 'kv.tsv' -> 'kv.tsv'
 
+1. Do not touch file extension (`-e/--ignore-ext`)
+
+        $ brename -p '.+(S\d+E\d+).+' -r '$1' -d -e
+        [INFO] checking: [ ok ] 'XXXXXX.S01E01.XXXX.720p.WEB-DL.AAC2.0.H.264-MC.ass' -> 'S01E01.ass'
+        [INFO] checking: [ ok ] 'XXXXXX.S01E01.XXXX.720p.WEB-DL.AAC2.0.H.264-MC.mkv' -> 'S01E01.mkv'
+        [INFO] 2 path(s) to be renamed
 
 ## Real-world examples
 
