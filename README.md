@@ -48,19 +48,19 @@
 
 #### Method 1: Download binaries
 
-[brename v2.3.0](https://github.com/shenwei356/brename/releases/tag/v2.3.0)
-[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.3.0/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.3.0)
+[brename v2.4.0](https://github.com/shenwei356/brename/releases/tag/v2.4.0)
+[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.4.0/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.4.0)
 
 ***Tip: run `brename -V` to check update !!!***
 
 OS     |Arch      |File, (mirror为中国用户下载镜像链接)                                                                                                                                                                         |Download Count
 :------|:---------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_linux_386.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_linux_386.tar.gz))                            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_linux_386.tar.gz)
-Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_linux_amd64.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_linux_amd64.tar.gz))                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_linux_amd64.tar.gz)
-OS X   |32-bit    |[brename_darwin_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_darwin_386.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_darwin_386.tar.gz))                         |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_darwin_386.tar.gz)
-OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_darwin_amd64.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_darwin_amd64.tar.gz))               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_darwin_amd64.tar.gz)
-Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_windows_386.exe.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_windows_386.exe.tar.gz))          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_windows_386.exe.tar.gz)
-Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_windows_amd64.exe.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_windows_amd64.exe.tar.gz))|[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.3.0/brename_windows_amd64.exe.tar.gz)
+Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_linux_386.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_linux_386.tar.gz))                            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_linux_386.tar.gz)
+Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_linux_amd64.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_linux_amd64.tar.gz))                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_linux_amd64.tar.gz)
+OS X   |32-bit    |[brename_darwin_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_darwin_386.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_darwin_386.tar.gz))                         |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_darwin_386.tar.gz)
+OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_darwin_amd64.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_darwin_amd64.tar.gz))               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_darwin_amd64.tar.gz)
+Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_windows_386.exe.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_windows_386.exe.tar.gz))          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_windows_386.exe.tar.gz)
+Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_windows_amd64.exe.tar.gz), ([mirror](http://app.shenwei.me/data/brename/brename_windows_amd64.exe.tar.gz))|[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.4.0/brename_windows_amd64.exe.tar.gz)
 
 
 Just [download](https://github.com/shenwei356/brename/releases) compressed
@@ -95,7 +95,7 @@ And then:
 ```
 brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.3.0
+Version: 2.4.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -332,6 +332,20 @@ Take a directory for example:
         [INFO] checking: [ ok ] 'XXXXXX.S01E01.XXXX.720p.WEB-DL.AAC2.0.H.264-MC.ass' -> 'S01E01.ass'
         [INFO] checking: [ ok ] 'XXXXXX.S01E01.XXXX.720p.WEB-DL.AAC2.0.H.264-MC.mkv' -> 'S01E01.mkv'
         [INFO] 2 path(s) to be renamed
+
+1. Auto mkdir
+
+        $ brename -f .txt -p '-' -r '/'
+        [INFO] checking: [ ok ] 'a-b-c.txt' -> 'a/b/c.txt'
+        [INFO] 1 path(s) to be renamed
+        [INFO] renamed: 'a-b-c.txt' -> 'a/b/c.txt'
+        [INFO] 1 path(s) renamed
+
+        $ tree a
+        a
+        └── b
+            └── c.txt
+
 
 ## Real-world examples
 

@@ -36,12 +36,13 @@ import (
 	"github.com/mattn/go-colorable"
 	"github.com/shenwei356/breader"
 	"github.com/shenwei356/go-logging"
+	"github.com/shenwei356/util/pathutil"
 	"github.com/spf13/cobra"
 )
 
 var log *logging.Logger
 
-var version = "2.3.0"
+var version = "2.4.0"
 var app = "brename"
 
 // Options is the struct containing all global options
@@ -102,12 +103,13 @@ func getOptions(cmd *cobra.Command) *Options {
 
 	infilters := getFlagStringSlice(cmd, "include-filters")
 	infilterRes := make([]*regexp.Regexp, 0, 10)
+	var infilterRe *regexp.Regexp
 	for _, infilter := range infilters {
 		if infilter == "" {
 			log.Errorf("value of flag -f/--include-filters missing")
 			os.Exit(1)
 		}
-		infilterRe, err := regexp.Compile("(?i)" + infilter)
+		infilterRe, err = regexp.Compile("(?i)" + infilter)
 		if err != nil {
 			log.Errorf("illegal regular expression for include filter: %s", infilter)
 			os.Exit(1)
@@ -117,12 +119,13 @@ func getOptions(cmd *cobra.Command) *Options {
 
 	exfilters := getFlagStringSlice(cmd, "exclude-filters")
 	exfilterRes := make([]*regexp.Regexp, 0, 10)
+	var exfilterRe *regexp.Regexp
 	for _, exfilter := range exfilters {
 		if exfilter == "" {
 			log.Errorf("value of flag -F/--exclude-filters missing")
 			os.Exit(1)
 		}
-		exfilterRe, err := regexp.Compile("(?i)" + exfilter)
+		exfilterRe, err = regexp.Compile("(?i)" + exfilter)
 		if err != nil {
 			log.Errorf("illegal regular expression for exclude filter: %s", exfilter)
 			os.Exit(1)
@@ -466,8 +469,20 @@ Special replacement symbols:
 		}
 
 		var n2 int
+		var targetDir string
+		var targetDirExisted bool
 		for _, op := range ops {
-			err := os.Rename(op.source, op.target)
+			targetDir = filepath.Dir(op.target)
+			targetDirExisted, err = pathutil.DirExists(targetDir)
+			if err != nil {
+				log.Errorf(`fail to rename: '%s' -> '%s'`, op.source, op.target)
+				os.Exit(1)
+			}
+			if !targetDirExisted {
+				os.MkdirAll(targetDir, 0755)
+			}
+
+			err = os.Rename(op.source, op.target)
 			if err != nil {
 				log.Errorf(`fail to rename: '%s' -> '%s'`, op.source, op.target)
 				os.Exit(1)
