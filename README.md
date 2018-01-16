@@ -95,7 +95,7 @@ And then:
 ```
 brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.4.0
+Version: 2.5.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -115,7 +115,7 @@ Special replacement symbols:
           n can be specified by flag -I/--key-capt-idx (default: 1)
 
 Usage:
-  brename [flags]
+  brename [flags] 
 
 Examples:
   1. dry run and showing potential dangerous operations
@@ -135,26 +135,30 @@ Examples:
       brename -p "(.+)" -r "{kv}" -k kv.tsv
   8. do not touch file extension
       brename -p ".+" -r "{nr}" -f .mkv -f .mp4 -e
+  9. only list paths that match pattern (-l)
+      brename -i -f '.docx?$' -p . -R -l
 
   More examples: https://github.com/shenwei356/brename
 
 Flags:
-  -d, --dry-run                       print rename operations but do not run
-  -F, --exclude-filters stringSlice   exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters
-  -i, --ignore-case                   ignore case
-  -e, --ignore-ext                    ignore file extension. i.e., replacement does not change file extension
-  -f, --include-filters stringSlice   include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters (default [.])
-  -D, --including-dir                 rename directories
-  -K, --keep-key                      keep the key as value when no value found for the key
-  -I, --key-capt-idx int              capture variable index of key (1-based) (default 1)
-  -m, --key-miss-repl string          replacement for key with no corresponding value
-  -k, --kv-file string                tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)
-  -p, --pattern string                search pattern (regular expression)
-  -R, --recursive                     rename recursively
-  -r, --replacement string            replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"
-  -n, --start-num int                 starting number when using {nr} in replacement (default 1)
-  -v, --verbose int                   verbose level (0 for all, 1 for warning and error, 2 for only error)
-  -V, --version                       print version information and check for update
+  -d, --dry-run                   print rename operations but do not run
+  -F, --exclude-filters strings   exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters
+  -h, --help                      help for brename
+  -i, --ignore-case               ignore case
+  -e, --ignore-ext                ignore file extension. i.e., replacement does not change file extension
+  -f, --include-filters strings   include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters (default [.])
+  -D, --including-dir             rename directories
+  -K, --keep-key                  keep the key as value when no value found for the key
+  -I, --key-capt-idx int          capture variable index of key (1-based) (default 1)
+  -m, --key-miss-repl string      replacement for key with no corresponding value
+  -k, --kv-file string            tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)
+  -l, --list                      only list paths that match pattern
+  -p, --pattern string            search pattern (regular expression)
+  -R, --recursive                 rename recursively
+  -r, --replacement string        replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"
+  -n, --start-num int             starting number when using {nr} in replacement (default 1)
+  -v, --verbose int               verbose level (0 for all, 1 for warning and error, 2 for only error)
+  -V, --version                   print version information and check for update
 
 ```
 

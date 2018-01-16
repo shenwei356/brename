@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.4.0"
+var version = "2.5.0"
 var app = "brename"
 
 // Options is the struct containing all global options
