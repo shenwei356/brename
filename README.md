@@ -346,6 +346,10 @@ Take a directory for example:
         └── b
             └── c.txt
 
+1. only list paths that match pattern (`-l`)
+      
+        brename -i -f '.docx?$' -p . -R -l
+
 
 ## Real-world examples
 

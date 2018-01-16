@@ -63,6 +63,7 @@ type Options struct {
 	ExcludeFilters   []string
 	IncludeFilterRes []*regexp.Regexp
 	ExcludeFilterRes []*regexp.Regexp
+	ListPath         bool
 
 	ReplaceWithNR bool
 	StartNum      int
@@ -189,6 +190,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		IncludeFilterRes: infilterRes,
 		ExcludeFilters:   infilters,
 		ExcludeFilterRes: exfilterRes,
+		ListPath:         getFlagBool(cmd, "list"),
 
 		ReplaceWithNR: replaceWithNR,
 		StartNum:      getFlagNonNegativeInt(cmd, "start-num"),
@@ -227,6 +229,8 @@ func init() {
 	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
 	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
 
+	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern`)
+
 	RootCmd.Flags().StringP("kv-file", "k", "",
 		`tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)`)
 	RootCmd.Flags().BoolP("keep-key", "K", false, "keep the key as value when no value found for the key")
@@ -251,6 +255,8 @@ func init() {
       brename -p "(.+)" -r "{kv}" -k kv.tsv
   8. do not touch file extension
       brename -p ".+" -r "{nr}" -f .mkv -f .mp4 -e
+  9. only list paths that match pattern (-l)
+      brename -i -f '.docx?$' -p . -R -l
 
   More examples: https://github.com/shenwei356/brename`
 
@@ -416,6 +422,10 @@ Special replacement symbols:
 
 		go func() {
 			for op := range opCH {
+				if opt.ListPath {
+					fmt.Println(op.source)
+					continue
+				}
 				if int(op.code) >= opt.Verbose {
 					switch op.code {
 					case codeOK:
@@ -459,6 +469,9 @@ Special replacement symbols:
 			os.Exit(1)
 		}
 
+		if opt.ListPath {
+			return
+		}
 		log.Infof("%d path(s) to be renamed", n)
 		if n == 0 {
 			return
@@ -617,7 +630,7 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 	// it's a directory
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
-		return err
+		log.Warning(err)
 	}
 
 	var filename string
