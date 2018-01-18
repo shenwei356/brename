@@ -309,7 +309,7 @@ Take a directory for example:
         [INFO] checking: [ ok ] 'b.jpg' -> 'c.jpg'
         [INFO] 2 path(s) to be renamed
 
-1. Rename with number (-r `{nr}`)
+1. Renaming with number (-r `{nr}`)
 
         $ brename -p '(.+)\.' -r 'pic-{nr}.' -f .jpg
         [INFO] checking: [ ok ] 'AA.jpg' -> 'pic-1.jpg'
@@ -351,7 +351,7 @@ Take a directory for example:
         └── b
             └── c.txt
 
-1. only list paths that match pattern (`-l` and `-a`)
+1. Only listing paths that match pattern (`-l` and `-a`)
 
         $ brename -p '.gz$' -R -l
         binaries/brename_darwin_386.tar.gz
@@ -361,7 +361,7 @@ Take a directory for example:
         binaries/brename_windows_386.exe.tar.gz
         binaries/brename_windows_amd64.exe.tar.gz
         
-        $ brename -p '.gz$' -R -l
+        $ brename -p '.gz$' -R -l -a
         /home/shenwei/project/src/github.com/shenwei356/brename/binaries/brename_darwin_386.tar.gz
         /home/shenwei/project/src/github.com/shenwei356/brename/binaries/brename_darwin_amd64.tar.gz
         /home/shenwei/project/src/github.com/shenwei356/brename/binaries/brename_linux_386.tar.gz
@@ -393,7 +393,7 @@ Take a directory for example:
             TCTATAG S4
             TCATAGC S3
 
-    1. Renaming tag as sample names, marking `unknown` for non-existing tag.
+    1. Renaming tag as sample name, marking `unknown` for non-existing tag.
 
             $ brename -p 'tag_(\w+)' -r '{kv}' -k barcodes.tsv -m unknown -d
             [INFO] read key-value file: barcodes.tsv

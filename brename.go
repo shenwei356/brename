@@ -432,11 +432,12 @@ Special replacement symbols:
 				if opt.ListPath {
 					if opt.ListAbsPath {
 						outPath, err = filepath.Abs(op.source)
+						fmt.Println(filepath.Separator)
 						checkError(err)
 					} else {
 						outPath = op.source
 					}
-					fmt.Println(outPath)
+
 					continue
 				}
 				if int(op.code) >= opt.Verbose {
