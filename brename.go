@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.5.0"
+var version = "2.5.1"
 var app = "brename"
 
 // Options is the struct containing all global options
@@ -63,7 +63,9 @@ type Options struct {
 	ExcludeFilters   []string
 	IncludeFilterRes []*regexp.Regexp
 	ExcludeFilterRes []*regexp.Regexp
-	ListPath         bool
+
+	ListPath    bool
+	ListAbsPath bool
 
 	ReplaceWithNR bool
 	StartNum      int
@@ -190,7 +192,9 @@ func getOptions(cmd *cobra.Command) *Options {
 		IncludeFilterRes: infilterRes,
 		ExcludeFilters:   infilters,
 		ExcludeFilterRes: exfilterRes,
-		ListPath:         getFlagBool(cmd, "list"),
+
+		ListPath:    getFlagBool(cmd, "list"),
+		ListAbsPath: getFlagBool(cmd, "list-abs"),
 
 		ReplaceWithNR: replaceWithNR,
 		StartNum:      getFlagNonNegativeInt(cmd, "start-num"),
@@ -230,6 +234,7 @@ func init() {
 	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
 
 	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern`)
+	RootCmd.Flags().BoolP("list-abs", "a", false, `list absolute path, using along with -l/--list`)
 
 	RootCmd.Flags().StringP("kv-file", "k", "",
 		`tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)`)
@@ -419,11 +424,19 @@ Special replacement symbols:
 
 		var hasErr bool
 		var n, nErr int
+		var outPath string
+		var err error
 
 		go func() {
 			for op := range opCH {
 				if opt.ListPath {
-					fmt.Println(op.source)
+					if opt.ListAbsPath {
+						outPath, err = filepath.Abs(op.source)
+						checkError(err)
+					} else {
+						outPath = op.source
+					}
+					fmt.Println(outPath)
 					continue
 				}
 				if int(op.code) >= opt.Verbose {
@@ -453,7 +466,6 @@ Special replacement symbols:
 			done <- 1
 		}()
 
-		var err error
 		for _, path := range getFileList(args) {
 			err = walk(opt, opCH, path)
 			if err != nil {
