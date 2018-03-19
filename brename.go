@@ -29,7 +29,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/fatih/color"
@@ -42,7 +41,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.5.1"
+var version = "2.5.2"
 var app = "brename"
 
 // Options is the struct containing all global options
@@ -69,6 +68,7 @@ type Options struct {
 
 	ReplaceWithNR bool
 	StartNum      int
+	NRFormat      string
 
 	ReplaceWithKV bool
 	KVs           map[string]string
@@ -198,6 +198,7 @@ func getOptions(cmd *cobra.Command) *Options {
 
 		ReplaceWithNR: replaceWithNR,
 		StartNum:      getFlagNonNegativeInt(cmd, "start-num"),
+		NRFormat:      fmt.Sprintf("%%0%dd", getFlagPositiveInt(cmd, "nr-width")),
 		ReplaceWithKV: replaceWithKV,
 
 		KVs:         kvs,
@@ -242,6 +243,7 @@ func init() {
 	RootCmd.Flags().IntP("key-capt-idx", "I", 1, "capture variable index of key (1-based)")
 	RootCmd.Flags().StringP("key-miss-repl", "m", "", "replacement for key with no corresponding value")
 	RootCmd.Flags().IntP("start-num", "n", 1, `starting number when using {nr} in replacement`)
+	RootCmd.Flags().IntP("nr-width", "", 1, `minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3`)
 
 	RootCmd.Example = `  1. dry run and showing potential dangerous operations
       brename -p "abc" -d
@@ -573,7 +575,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	r := opt.Replacement
 
 	if opt.ReplaceWithNR {
-		r = reNR.ReplaceAllString(r, strconv.Itoa(opt.StartNum))
+		r = reNR.ReplaceAllString(r, fmt.Sprintf(opt.NRFormat, opt.StartNum))
 		opt.StartNum++
 	}
 
