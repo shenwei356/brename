@@ -41,8 +41,11 @@ import (
 
 var log *logging.Logger
 
-var version = "2.5.2"
+var version = "2.6.0"
 var app = "brename"
+
+// for detecting one case where two or more files are renamed to same new path
+var pathTree map[string]struct{}
 
 // Options is the struct containing all global options
 type Options struct {
@@ -76,6 +79,8 @@ type Options struct {
 	KeepKey       bool
 	KeyCaptIdx    int
 	KeyMissRepl   string
+
+	OverwriteMode int
 }
 
 var reNR = regexp.MustCompile(`\{(NR|nr)\}`)
@@ -175,8 +180,20 @@ func getOptions(cmd *cobra.Command) *Options {
 		log.Infof("%d pairs of key-value loaded", len(kvs))
 	}
 
+	verbose := getFlagNonNegativeInt(cmd, "verbose")
+	if verbose > 2 {
+		log.Errorf("illegal value of flag --verbose: %d, only 0/1/2 allowed", verbose)
+		os.Exit(1)
+	}
+
+	overwriteMode := getFlagNonNegativeInt(cmd, "overwrite-mode")
+	if overwriteMode > 2 {
+		log.Errorf("illegal value of flag -o/--overwrite-mode: %d, only 0/1/2 allowed", overwriteMode)
+		os.Exit(1)
+	}
+
 	return &Options{
-		Verbose: getFlagNonNegativeInt(cmd, "verbose"),
+		Verbose: verbose,
 		Version: version,
 		DryRun:  getFlagBool(cmd, "dry-run"),
 
@@ -206,6 +223,8 @@ func getOptions(cmd *cobra.Command) *Options {
 		KeepKey:     getFlagBool(cmd, "keep-key"),
 		KeyCaptIdx:  getFlagPositiveInt(cmd, "key-capt-idx"),
 		KeyMissRepl: getFlagString(cmd, "key-miss-repl"),
+
+		OverwriteMode: overwriteMode,
 	}
 }
 
@@ -220,7 +239,7 @@ func init() {
 	logging.SetBackend(backendFormatter)
 	log = logging.MustGetLogger(app)
 
-	RootCmd.Flags().IntP("verbose", "v", 0, "verbose level (0 for all, 1 for warning and error, 2 for only error)")
+	RootCmd.Flags().IntP("verbose", "v", 0, "verbose level (0 for all, 1 for warning and error, 2 for only error) (default 0)")
 	RootCmd.Flags().BoolP("version", "V", false, "print version information and check for update")
 	RootCmd.Flags().BoolP("dry-run", "d", false, "print rename operations but do not run")
 
@@ -244,6 +263,8 @@ func init() {
 	RootCmd.Flags().StringP("key-miss-repl", "m", "", "replacement for key with no corresponding value")
 	RootCmd.Flags().IntP("start-num", "n", 1, `starting number when using {nr} in replacement`)
 	RootCmd.Flags().IntP("nr-width", "", 1, `minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3`)
+
+	RootCmd.Flags().IntP("overwrite-mode", "o", 0, "overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)")
 
 	RootCmd.Example = `  1. dry run and showing potential dangerous operations
       brename -p "abc" -d
@@ -292,6 +313,8 @@ Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
 
 Use "{{.CommandPath}} --help" for more information about a command.{{end}}
 `)
+
+	pathTree = make(map[string]struct{}, 1000)
 }
 
 func main() {
@@ -399,8 +422,7 @@ Homepage: https://github.com/shenwei356/brename
 
 Attention:
   1. Paths starting with "." is ignored.
-  2. Overwriting existed files is not allowed.
-  3. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
+  2. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
      e.g., -f ".html" -f ".htm".
      But ATTENTION: comma in filter is treated as separater of multiple filters.
 
@@ -447,18 +469,37 @@ Special replacement symbols:
 						log.Infof("checking: %s\n", op)
 					case codeUnchanged:
 						log.Warningf("checking: %s\n", op)
-					case codeExisted:
-						log.Errorf("checking: %s\n", op)
+					case codeExisted, codeOverwriteNewPath:
+						switch opt.OverwriteMode {
+						case 0: // report error
+							log.Errorf("checking: %s\n", op)
+						case 1: // overwrite
+							log.Warningf("checking: %s (will be overwrited)\n", op)
+						case 2: // no renaming
+							log.Warningf("checking: %s (will NOT be overwrited)\n", op)
+						}
 					case codeMissingTarget:
 						log.Errorf("checking: %s\n", op)
 					}
 				}
 
 				switch op.code {
-				case 0:
+				case codeOK:
 					ops = append(ops, op)
 					n++
-				case 1:
+				case codeUnchanged:
+				case codeExisted, codeOverwriteNewPath:
+					switch opt.OverwriteMode {
+					case 0: // report error
+						hasErr = true
+						nErr++
+						continue
+					case 1: // overwrite
+						ops = append(ops, op)
+						n++
+					case 2: // no renaming
+
+					}
 				default:
 					hasErr = true
 					nErr++
@@ -528,6 +569,7 @@ const (
 	codeOK code = iota
 	codeUnchanged
 	codeExisted
+	codeOverwriteNewPath
 	codeMissingTarget
 )
 
@@ -543,6 +585,8 @@ func (c code) String() string {
 		return yellow("unchanged")
 	case codeExisted:
 		return red("new path existed")
+	case codeOverwriteNewPath:
+		return red("overwriting newly renamed path")
 	case codeMissingTarget:
 		return red("missing target")
 	}
@@ -601,20 +645,26 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	}
 
 	filename2 := opt.PatternRe.ReplaceAllString(filename, r) + ext
+	target := filepath.Join(dir, filename2)
+
 	if filename2 == "" {
-		return true, operation{path, filepath.Join(dir, filename2), codeMissingTarget}
+		return true, operation{path, target, codeMissingTarget}
 	}
 
 	if filename2 == filename+ext {
-		return true, operation{path, filepath.Join(dir, filename2), codeUnchanged}
+		return true, operation{path, target, codeUnchanged}
 	}
 
-	target := filepath.Join(dir, filename2)
 	if _, err := os.Stat(target); err == nil {
 		return true, operation{path, target, codeExisted}
 	}
 
-	return true, operation{path, filepath.Join(dir, filename2), codeOK}
+	if _, ok := pathTree[target]; ok {
+		return true, operation{path, target, codeOverwriteNewPath}
+	}
+	pathTree[target] = struct{}{}
+
+	return true, operation{path, target, codeOK}
 }
 
 func ignore(opt *Options, path string) bool {

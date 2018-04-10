@@ -26,6 +26,7 @@
 
 - **Cross-platform**. Supporting Windows, Mac OS X and Linux.
 - **Safe**. By ***checking potential conflicts and errors***.
+- **Overwrite can be detected and users can choose whether overwrite or leave it**.
 - **File filtering**. Supporting including and excluding files via regular expression.
     No need to run commands like `find ./ -name "*.html" -exec CMD`.
 - **Renaming submatch with corresponding value via key-value file**.
@@ -48,19 +49,19 @@
 
 #### Method 1: Download binaries
 
-[brename v2.5.2](https://github.com/shenwei356/brename/releases/tag/v2.5.2)
-[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.5.2/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.5.2)
+[brename v2.6.0](https://github.com/shenwei356/brename/releases/tag/v2.6.0)
+[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.6.0/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.6.0)
 
 ***Tip: run `brename -V` to check update !!!***
 
 OS     |Arch      |File, 中国镜像                                                                                                                                                                              |Download Count
 :------|:---------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_linux_386.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_386.tar.gz)                            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_linux_386.tar.gz)
-Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_linux_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_amd64.tar.gz)                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_linux_amd64.tar.gz)
-OS X   |32-bit    |[brename_darwin_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_darwin_386.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_386.tar.gz)                         |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_darwin_386.tar.gz)
-OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_darwin_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_amd64.tar.gz)               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_darwin_amd64.tar.gz)
-Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_windows_386.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_windows_386.exe.tar.gz)
-Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_windows_amd64.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_amd64.exe.tar.gz)|[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.5.2/brename_windows_amd64.exe.tar.gz)
+Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_linux_386.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_386.tar.gz)                            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_linux_386.tar.gz)
+Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_linux_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_amd64.tar.gz)                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_linux_amd64.tar.gz)
+OS X   |32-bit    |[brename_darwin_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_darwin_386.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_386.tar.gz)                         |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_darwin_386.tar.gz)
+OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_darwin_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_amd64.tar.gz)               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_darwin_amd64.tar.gz)
+Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_windows_386.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_windows_386.exe.tar.gz)
+Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_windows_amd64.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_amd64.exe.tar.gz)|[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.6.0/brename_windows_amd64.exe.tar.gz)
 
 
 Just [download](https://github.com/shenwei356/brename/releases) compressed
@@ -93,9 +94,10 @@ And then:
 ## Usage
 
 ```
+
 brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.5.2
+Version: 2.6.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -103,8 +105,7 @@ Homepage: https://github.com/shenwei356/brename
 
 Attention:
   1. Paths starting with "." is ignored.
-  2. Overwriting existed files is not allowed.
-  3. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
+  2. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
      e.g., -f ".html" -f ".htm".
      But ATTENTION: comma in filter is treated as separater of multiple filters.
 
@@ -155,11 +156,12 @@ Flags:
   -l, --list                      only list paths that match pattern
   -a, --list-abs                  list absolute path, using along with -l/--list
       --nr-width int              minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3 (default 1)
+  -o, --overwrite-mode int        overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)
   -p, --pattern string            search pattern (regular expression)
   -R, --recursive                 rename recursively
   -r, --replacement string        replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"
   -n, --start-num int             starting number when using {nr} in replacement (default 1)
-  -v, --verbose int               verbose level (0 for all, 1 for warning and error, 2 for only error)
+  -v, --verbose int               verbose level (0 for all, 1 for warning and error, 2 for only error)  (default 0)
   -V, --version                   print version information and check for update
 ```
 
@@ -374,6 +376,54 @@ Take a directory for example:
         /home/shenwei/project/src/github.com/shenwei356/brename/binaries/brename_linux_amd64.tar.gz
         /home/shenwei/project/src/github.com/shenwei356/brename/binaries/brename_windows_386.exe.tar.gz
         /home/shenwei/project/src/github.com/shenwei356/brename/binaries/brename_windows_amd64.exe.tar.gz
+
+1. Overwrite mode (`-o/--overwrite-mode`)
+
+        $ ls *.tar.gz
+        brename_darwin_386.tar.gz    brename_linux_386.tar.gz    brename_windows_386.exe.tar.gz
+        brename_darwin_amd64.tar.gz  brename_linux_amd64.tar.gz  brename_windows_amd64.exe.tar.gz
+
+    1. default mode: reporting error
+
+            $ brename -p 386 -r amd64 -d
+            [ERRO] checking: [ new path existed ] 'brename_darwin_386.tar.gz' -> 'brename_darwin_amd64.tar.gz'
+            [ERRO] checking: [ new path existed ] 'brename_linux_386.tar.gz' -> 'brename_linux_amd64.tar.gz'
+            [ERRO] checking: [ new path existed ] 'brename_windows_386.exe.tar.gz' -> 'brename_windows_amd64.exe.tar.gz'
+            [ERRO] 3 potential error(s) detected, please check
+
+    1. allowing overwrite
+
+            $ brename -p 386 -r amd64 -d -o 1
+            [WARN] checking: [ new path existed ] 'brename_darwin_386.tar.gz' -> 'brename_darwin_amd64.tar.gz' (will be overwrited)
+            [WARN] checking: [ new path existed ] 'brename_linux_386.tar.gz' -> 'brename_linux_amd64.tar.gz' (will be overwrited)
+            [WARN] checking: [ new path existed ] 'brename_windows_386.exe.tar.gz' -> 'brename_windows_amd64.exe.tar.gz' (will be overwrited)
+            [INFO] 3 path(s) to be renamed
+
+    1. leave it
+
+            $ brename -p 386 -r amd64 -d -o 2
+            [WARN] checking: [ new path existed ] 'brename_darwin_386.tar.gz' -> 'brename_darwin_amd64.tar.gz' (will NOT be overwrited)
+            [WARN] checking: [ new path existed ] 'brename_linux_386.tar.gz' -> 'brename_linux_amd64.tar.gz' (will NOT be overwrited)
+            [WARN] checking: [ new path existed ] 'brename_windows_386.exe.tar.gz' -> 'brename_windows_amd64.exe.tar.gz' (will NOT be overwrited)
+            [INFO] 0 path(s) to be renamed
+
+    1. this flag also works for another case, where two or more files are renamed to same new path
+
+            $ brename -f 386 -p 'darwin|linux' -r unix-like -d
+            [INFO] checking: [ ok ] 'brename_darwin_386.tar.gz' -> 'brename_unix-like_386.tar.gz'
+            [ERRO] checking: [ overwriting newly renamed path ] 'brename_linux_386.tar.gz' -> 'brename_unix-like_386.tar.gz'
+            [ERRO] 1 potential error(s) detected, please check
+
+            $ brename -f 386 -p 'darwin|linux' -r unix-like -d -o 1
+            [INFO] checking: [ ok ] 'brename_darwin_386.tar.gz' -> 'brename_unix-like_386.tar.gz'
+            [WARN] checking: [ overwriting newly renamed path ] 'brename_linux_386.tar.gz' -> 'brename_unix-like_386.tar.gz' (will be overwrited)
+            [INFO] 2 path(s) to be renamed
+
+            $ brename -f 386 -p 'darwin|linux' -r unix-like -d -o 2
+            [INFO] checking: [ ok ] 'brename_darwin_386.tar.gz' -> 'brename_unix-like_386.tar.gz'
+            [WARN] checking: [ overwriting newly renamed path ] 'brename_linux_386.tar.gz' -> 'brename_unix-like_386.tar.gz' (will NOT be overwrited)
+            [INFO] 1 path(s) to be renamed
+
 
 
 ## Real-world examples
