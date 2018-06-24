@@ -21,6 +21,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -41,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.6.0"
+var version = "2.7.0"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
@@ -81,6 +82,9 @@ type Options struct {
 	KeyMissRepl   string
 
 	OverwriteMode int
+
+	Undo             bool
+	LastOpDetailFile string
 }
 
 var reNR = regexp.MustCompile(`\{(NR|nr)\}`)
@@ -225,6 +229,9 @@ func getOptions(cmd *cobra.Command) *Options {
 		KeyMissRepl: getFlagString(cmd, "key-miss-repl"),
 
 		OverwriteMode: overwriteMode,
+
+		Undo:             getFlagBool(cmd, "undo"),
+		LastOpDetailFile: ".brename_detail.txt",
 	}
 }
 
@@ -266,6 +273,8 @@ func init() {
 
 	RootCmd.Flags().IntP("overwrite-mode", "o", 0, "overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)")
 
+	RootCmd.Flags().BoolP("undo", "u", false, "undo the LAST successful operation")
+
 	RootCmd.Example = `  1. dry run and showing potential dangerous operations
       brename -p "abc" -d
   2. dry run and only show operations that will cause error
@@ -285,6 +294,8 @@ func init() {
       brename -p ".+" -r "{nr}" -f .mkv -f .mp4 -e
   9. only list paths that match pattern (-l)
       brename -i -f '.docx?$' -p . -R -l
+  10. undo the LAST successful operation
+      brename -u
 
   More examples: https://github.com/shenwei356/brename`
 
@@ -442,6 +453,65 @@ Special replacement symbols:
 			return
 		}
 
+		var delimiter = "\t_shenwei356-brename_\t"
+		if opt.Undo {
+			existed, err := pathutil.Exists(opt.LastOpDetailFile)
+			checkError(err)
+			if !existed {
+				log.Infof("no brename operation to undo")
+				return
+			}
+
+			history := make([]operation, 0, 1000)
+
+			fn := func(line string) (interface{}, bool, error) {
+				line = strings.TrimRight(line, "\n")
+				if line == "" || line[0] == '#' { // ignoring blank line and comment line
+					return "", false, nil
+				}
+				items := strings.Split(line, delimiter)
+				if len(items) != 2 {
+					return items, false, nil
+				}
+				return operation{source: items[0], target: items[1], code: 0}, true, nil
+			}
+
+			var reader *breader.BufferedReader
+			reader, err = breader.NewBufferedReader(opt.LastOpDetailFile, 2, 100, fn)
+			checkError(err)
+
+			var op operation
+			for chunk := range reader.Ch {
+				checkError(chunk.Err)
+				for _, data := range chunk.Data {
+					op = data.(operation)
+					history = append(history, op)
+				}
+			}
+			if len(history) == 0 {
+				log.Infof("no brename operation to undo")
+				return
+			}
+
+			n := 0
+			for i := len(history) - 1; i >= 0; i-- {
+				op = history[i]
+
+				err = os.Rename(op.target, op.source)
+				if err != nil {
+					log.Errorf(`fail to rename: '%s' -> '%s': %s`, op.source, op.target, err)
+					log.Infof("%d path(s) renamed", n)
+					os.Exit(1)
+				}
+				n++
+				log.Infof("rename back: '%s' -> '%s'", op.target, op.source)
+			}
+			log.Infof("%d path(s) renamed", n)
+
+			checkError(os.Remove(opt.LastOpDetailFile))
+			return
+		}
+
 		ops := make([]operation, 0, 1000)
 		opCH := make(chan operation, 100)
 		done := make(chan int)
@@ -536,6 +606,15 @@ Special replacement symbols:
 			return
 		}
 
+		var fh *os.File
+		fh, err = os.Create(opt.LastOpDetailFile)
+		checkError(err)
+		bfh := bufio.NewWriter(fh)
+		defer func() {
+			checkError(bfh.Flush())
+			fh.Close()
+		}()
+
 		var n2 int
 		var targetDir string
 		var targetDirExisted bool
@@ -552,10 +631,11 @@ Special replacement symbols:
 
 			err = os.Rename(op.source, op.target)
 			if err != nil {
-				log.Errorf(`fail to rename: '%s' -> '%s'`, op.source, op.target)
+				log.Errorf(`fail to rename: '%s' -> '%s': %s`, op.source, op.target, err)
 				os.Exit(1)
 			}
 			log.Infof("renamed: '%s' -> '%s'", op.source, op.target)
+			bfh.WriteString(fmt.Sprintf("%s%s%s\n", op.source, delimiter, op.target))
 			n2++
 		}
 
