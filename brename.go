@@ -84,6 +84,7 @@ type Options struct {
 	OverwriteMode int
 
 	Undo             bool
+	ForceUndo        bool
 	LastOpDetailFile string
 }
 
@@ -91,6 +92,16 @@ var reNR = regexp.MustCompile(`\{(NR|nr)\}`)
 var reKV = regexp.MustCompile(`\{(KV|kv)\}`)
 
 func getOptions(cmd *cobra.Command) *Options {
+	undo := getFlagBool(cmd, "undo")
+	forceUndo := getFlagBool(cmd, "force-undo")
+	if undo || forceUndo {
+		return &Options{
+			Undo:             true, // set it true even only force-undo given
+			ForceUndo:        forceUndo,
+			LastOpDetailFile: ".brename_detail.txt",
+		}
+	}
+
 	version := getFlagBool(cmd, "version")
 	if version {
 		checkVersion()
@@ -230,7 +241,7 @@ func getOptions(cmd *cobra.Command) *Options {
 
 		OverwriteMode: overwriteMode,
 
-		Undo:             getFlagBool(cmd, "undo"),
+		Undo:             false,
 		LastOpDetailFile: ".brename_detail.txt",
 	}
 }
@@ -274,6 +285,7 @@ func init() {
 	RootCmd.Flags().IntP("overwrite-mode", "o", 0, "overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)")
 
 	RootCmd.Flags().BoolP("undo", "u", false, "undo the LAST successful operation")
+	RootCmd.Flags().BoolP("force-undo", "U", false, "continue undo even when some operation failed")
 
 	RootCmd.Example = `  1. dry run and showing potential dangerous operations
       brename -p "abc" -d
@@ -500,8 +512,10 @@ Special replacement symbols:
 				err = os.Rename(op.target, op.source)
 				if err != nil {
 					log.Errorf(`fail to rename: '%s' -> '%s': %s`, op.source, op.target, err)
-					log.Infof("%d path(s) renamed", n)
-					os.Exit(1)
+					if !opt.ForceUndo {
+						log.Infof("%d path(s) renamed", n)
+						os.Exit(1)
+					}
 				}
 				n++
 				log.Infof("rename back: '%s' -> '%s'", op.target, op.source)

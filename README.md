@@ -146,6 +146,7 @@ Examples:
 Flags:
   -d, --dry-run                   print rename operations but do not run
   -F, --exclude-filters strings   exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters
+  -U, --force-undo                continue undo even when some operation failed
   -h, --help                      help for brename
   -i, --ignore-case               ignore case
   -e, --ignore-ext                ignore file extension. i.e., replacement does not change file extension
@@ -427,10 +428,14 @@ Take a directory for example:
             [WARN] checking: [ overwriting newly renamed path ] 'brename_linux_386.tar.gz' -> 'brename_unix-like_386.tar.gz' (will NOT be overwrited)
             [INFO] 1 path(s) to be renamed
 
-1. **Undo** the LAST successful operation, yes it's COOL! (`-u/--undo`)
+1. **Undo** the LAST successful operation, yes it's COOL! (`-u/--undo`, `-U/--force-undo`)
     
         brename -u
     
+        # if you make more changes after renaming, you can
+        brename -U
+        
+        
 
 ## Real-world examples
 
