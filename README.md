@@ -489,10 +489,10 @@ Take a directory for example:
             └── "test.pdf"
 
 
-    1. Removing "\n"
+    1. Removing "\n", "'", "?".
 
-            $ brename -p "\n" -r " " -R
-
+            $ brename -p "[\n'\?]" -r " " -R
+            
     1. Replacing ":" with "_"
 
             $ brename -p ":" -r " _" -R
