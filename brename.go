@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.7.0"
+var version = "2.7.1"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
@@ -792,7 +792,8 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 	}
 
 	var filename string
-
+	_files := make([]string, 0, len(files))
+	_dirs := make([]string, 0, len(files))
 	for _, file := range files {
 		filename = file.Name()
 
@@ -800,25 +801,34 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 			continue
 		}
 
-		fileFullPath := filepath.Join(path, filename)
-		// sub directory
 		if file.IsDir() {
-			if opt.Recursive {
-				err := walk(opt, opCh, fileFullPath)
-				if err != nil {
-					return err
-				}
-			}
-			// rename directories
-			if opt.IncludingDir && !ignore(opt, filename) {
-				if ok, op := checkOperation(opt, fileFullPath); ok {
-					opCh <- op
-				}
-			}
+			_dirs = append(_dirs, filename)
 		} else {
-			if ignore(opt, filename) {
-				continue
+			_files = append(_files, filename)
+		}
+	}
+
+	for _, filename := range _files {
+		if ignore(opt, filename) {
+			continue
+		}
+		fileFullPath := filepath.Join(path, filename)
+		if ok, op := checkOperation(opt, fileFullPath); ok {
+			opCh <- op
+		}
+	}
+
+	// sub directory
+	for _, filename := range _dirs {
+		fileFullPath := filepath.Join(path, filename)
+		if opt.Recursive {
+			err := walk(opt, opCh, fileFullPath)
+			if err != nil {
+				return err
 			}
+		}
+		// rename directories
+		if opt.IncludingDir && !ignore(opt, filename) {
 			if ok, op := checkOperation(opt, fileFullPath); ok {
 				opCh <- op
 			}
