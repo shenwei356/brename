@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.7.1"
+var version = "2.7.2"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
@@ -175,6 +175,8 @@ func getOptions(cmd *cobra.Command) *Options {
 
 	var replaceWithKV bool
 	var kvs map[string]string
+	keepKey := getFlagBool(cmd, "keep-key")
+	keyMissRepl := getFlagString(cmd, "key-miss-repl")
 	if reKV.MatchString(replacement) {
 		replaceWithKV = true
 		if !regexp.MustCompile(`\(.+\)`).MatchString(pattern) {
@@ -182,6 +184,10 @@ func getOptions(cmd *cobra.Command) *Options {
 		}
 		if kvFile == "" {
 			checkError(fmt.Errorf(`since replacement symbol "{kv}"/"{KV}" found in value of flag -r/--replacement, tab-delimited key-value file should be given by flag -k/--kv-file`))
+		}
+
+		if keepKey && keyMissRepl != "" {
+			log.Warning("flag -m/--key-miss-repl ignored when flag -K/--keep-key given")
 		}
 		log.Infof("read key-value file: %s", kvFile)
 		kvs, err = readKVs(kvFile, ignoreCase)
@@ -235,9 +241,9 @@ func getOptions(cmd *cobra.Command) *Options {
 
 		KVs:         kvs,
 		KVFile:      kvFile,
-		KeepKey:     getFlagBool(cmd, "keep-key"),
+		KeepKey:     keepKey,
 		KeyCaptIdx:  getFlagPositiveInt(cmd, "key-capt-idx"),
-		KeyMissRepl: getFlagString(cmd, "key-miss-repl"),
+		KeyMissRepl: keyMissRepl,
 
 		OverwriteMode: overwriteMode,
 
@@ -732,8 +738,10 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 				r = reKV.ReplaceAllString(r, opt.KVs[k])
 			} else if opt.KeepKey {
 				r = reKV.ReplaceAllString(r, found[opt.KeyCaptIdx])
-			} else {
+			} else if opt.KeyMissRepl != "" {
 				r = reKV.ReplaceAllString(r, opt.KeyMissRepl)
+			} else {
+				return false, operation{path, path, codeUnchanged}
 			}
 		}
 	}
