@@ -1,6 +1,8 @@
+- v2.8.1
+    - matching directories when using flag `--only-dir` or `-D/--including-dir`.
 - v2.8.0
     - handle files and then dirs in a directory.
-    - ignore files matched with pattern but not found in kv files when using {kv}.
+    - ignore files matched with pattern but not found in kv files when using `{kv}`.
     - add flag `--max-depth` to limit search depth.
     - add falg `--only-dir` to only handle directories.
 - v2.7.0

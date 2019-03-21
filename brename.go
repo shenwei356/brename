@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.8.0"
+var version = "2.8.1"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
@@ -839,6 +839,10 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 
 	// sub directory
 	for _, filename := range _dirs {
+		if (opt.OnlyDir || opt.IncludingDir) && ignore(opt, filename) {
+			continue
+		}
+
 		fileFullPath := filepath.Join(path, filename)
 		if opt.Recursive {
 			err := walk(opt, opCh, fileFullPath, depth+1)
