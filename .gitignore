@@ -27,3 +27,4 @@ brename
 t.*
 binaries
 brename_*
+*.brename_detail.txt

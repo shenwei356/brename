@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.7.2"
+var version = "2.8.0"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
@@ -59,6 +59,8 @@ type Options struct {
 	Replacement  string
 	Recursive    bool
 	IncludingDir bool
+	OnlyDir      bool
+	MaxDepth     int
 	IgnoreCase   bool
 	IgnoreExt    bool
 
@@ -223,6 +225,8 @@ func getOptions(cmd *cobra.Command) *Options {
 		Replacement:  replacement,
 		Recursive:    getFlagBool(cmd, "recursive"),
 		IncludingDir: getFlagBool(cmd, "including-dir"),
+		OnlyDir:      getFlagBool(cmd, "only-dir"),
+		MaxDepth:     getFlagNonNegativeInt(cmd, "max-depth"),
 		IgnoreCase:   ignoreCase,
 		IgnoreExt:    getFlagBool(cmd, "ignore-ext"),
 
@@ -271,6 +275,8 @@ func init() {
 	RootCmd.Flags().StringP("replacement", "r", "", `replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"`)
 	RootCmd.Flags().BoolP("recursive", "R", false, "rename recursively")
 	RootCmd.Flags().BoolP("including-dir", "D", false, "rename directories")
+	RootCmd.Flags().BoolP("only-dir", "", false, "only rename directories")
+	RootCmd.Flags().IntP("max-depth", "", 0, "maximum depth for recursive search (0 for no limit)")
 	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case")
 	RootCmd.Flags().BoolP("ignore-ext", "e", false, "ignore file extension. i.e., replacement does not change file extension")
 
@@ -600,7 +606,7 @@ Special replacement symbols:
 		}()
 
 		for _, path := range getFileList(args) {
-			err = walk(opt, opCH, path)
+			err = walk(opt, opCH, path, 1)
 			if err != nil {
 				close(opCH)
 				checkError(err)
@@ -783,7 +789,10 @@ func ignore(opt *Options, path string) bool {
 	return true
 }
 
-func walk(opt *Options, opCh chan<- operation, path string) error {
+func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
+	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
+		return nil
+	}
 	_, err := ioutil.ReadFile(path)
 	// it's a file
 	if err == nil {
@@ -816,13 +825,15 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 		}
 	}
 
-	for _, filename := range _files {
-		if ignore(opt, filename) {
-			continue
-		}
-		fileFullPath := filepath.Join(path, filename)
-		if ok, op := checkOperation(opt, fileFullPath); ok {
-			opCh <- op
+	if !opt.OnlyDir {
+		for _, filename := range _files {
+			if ignore(opt, filename) {
+				continue
+			}
+			fileFullPath := filepath.Join(path, filename)
+			if ok, op := checkOperation(opt, fileFullPath); ok {
+				opCh <- op
+			}
 		}
 	}
 
@@ -830,13 +841,13 @@ func walk(opt *Options, opCh chan<- operation, path string) error {
 	for _, filename := range _dirs {
 		fileFullPath := filepath.Join(path, filename)
 		if opt.Recursive {
-			err := walk(opt, opCh, fileFullPath)
+			err := walk(opt, opCh, fileFullPath, depth+1)
 			if err != nil {
 				return err
 			}
 		}
 		// rename directories
-		if opt.IncludingDir && !ignore(opt, filename) {
+		if (opt.OnlyDir || opt.IncludingDir) && !ignore(opt, filename) {
 			if ok, op := checkOperation(opt, fileFullPath); ok {
 				opCh <- op
 			}

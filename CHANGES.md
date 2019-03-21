@@ -1,0 +1,36 @@
+- v2.8.0
+    - handle files and then dirs in a directory.
+    - ignore files matched with pattern but not found in kv files when using {kv}.
+    - add flag `--max-depth` to limit search depth.
+    - add falg `--only-dir` to only handle directories.
+- v2.7.0
+    - add flag `-u/--undo` and `-U/--force-undo` to undo the LAST successful operation.
+- v2.6.0
+    - better conflict detection.
+    - add flag `-o/--overwrite-mode` to choose 0) reporting error, 1) overwriting existed files or 2) skipping renaming.
+- v2.5.2
+    - add flag `--nr-width` to fill leading `0`s for `{nr}`.
+- v2.5.0
+    - skipping directories without read permission.
+    - add flag `-l/--list` for only listing paths that match pattern.
+- v2.4.0
+    - supporting automatically mkdir. [#5](https://github.com/shenwei356/brename/issues/5)
+- v2.3.0
+    - add option -e/--ignore-ext for ignore file extension. [#4](https://github.com/shenwei356/brename/issues/4)
+    - build static binaries.
+- v2.2.0
+    - Add supporting replace with ascending integer (`{nr}` in value of flag `-r/--replacement`).
+    - Add supporting renaming submatch with corresponding value via key-value file (`-k/--kv-file`)  (`{kv}` in value of flag `-r/--replacement`).
+- v2.1.3
+    - fix log error, and bug of wrongly including dir.
+- v2.1.2
+    - fix windows color via https://github.com/mattn/go-colorable. [#1](https://github.com/shenwei356/brename/pull/1)
+- v2.1.1
+    - changing output format.
+- v2.1
+    - add include and exclude file filters.
+- v2.0
+    - A safer rewritten version.
+- v1.0
+    - v1.0
+    
