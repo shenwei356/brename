@@ -105,7 +105,7 @@ Attention:
   1. Paths starting with "." is ignored.
   2. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
      e.g., -f ".html" -f ".htm".
-     But ATTENTION: comma in filter is treated as separater of multiple filters.
+     But ATTENTION: comma in filter is treated as separator of multiple filters.
 
 Special replacement symbols:
 
@@ -143,12 +143,12 @@ Examples:
 
 Flags:
   -d, --dry-run                   print rename operations but do not run
-  -F, --exclude-filters strings   exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters
+  -F, --exclude-filters strings   exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters
   -U, --force-undo                continue undo even when some operation failed
   -h, --help                      help for brename
   -i, --ignore-case               ignore case
   -e, --ignore-ext                ignore file extension. i.e., replacement does not change file extension
-  -f, --include-filters strings   include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters (default [.])
+  -f, --include-filters strings   include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters (default [.])
   -D, --including-dir             rename directories
   -K, --keep-key                  keep the key as value when no value found for the key
   -I, --key-capt-idx int          capture variable index of key (1-based) (default 1)
@@ -156,7 +156,7 @@ Flags:
   -k, --kv-file string            tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)
   -l, --list                      only list paths that match pattern
   -a, --list-abs                  list absolute path, using along with -l/--list
-  -s, --list-sep string           separater for list of found paths (default "\n")
+  -s, --list-sep string           separator for list of found paths (default "\n")
       --max-depth int             maximum depth for recursive search (0 for no limit)
       --nr-width int              minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3 (default 1)
       --only-dir                  only rename directories

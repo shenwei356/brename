@@ -282,11 +282,11 @@ func init() {
 	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case")
 	RootCmd.Flags().BoolP("ignore-ext", "e", false, "ignore file extension. i.e., replacement does not change file extension")
 
-	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
-	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
+	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters`)
+	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters`)
 
 	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern`)
-	RootCmd.Flags().StringP("list-sep", "s", "\n", `separater for list of found paths`)
+	RootCmd.Flags().StringP("list-sep", "s", "\n", `separator for list of found paths`)
 	RootCmd.Flags().BoolP("list-abs", "a", false, `list absolute path, using along with -l/--list`)
 
 	RootCmd.Flags().StringP("kv-file", "k", "",
@@ -462,7 +462,7 @@ Attention:
   1. Paths starting with "." is ignored.
   2. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
      e.g., -f ".html" -f ".htm".
-     But ATTENTION: comma in filter is treated as separater of multiple filters.
+     But ATTENTION: comma in filter is treated as separator of multiple filters.
 
 Special replacement symbols:
 
