@@ -1,3 +1,5 @@
+- v2.9.0
+    - add flag `--list-sep` to set separater for list of found paths.
 - v2.8.1
     - matching directories when using flag `--only-dir` or `-D/--including-dir`.
 - v2.8.0

@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.8.1"
+var version = "2.9.0"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
@@ -70,6 +70,7 @@ type Options struct {
 	ExcludeFilterRes []*regexp.Regexp
 
 	ListPath    bool
+	ListPathSep string
 	ListAbsPath bool
 
 	ReplaceWithNR bool
@@ -236,6 +237,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		ExcludeFilterRes: exfilterRes,
 
 		ListPath:    getFlagBool(cmd, "list"),
+		ListPathSep: getFlagString(cmd, "list-sep"),
 		ListAbsPath: getFlagBool(cmd, "list-abs"),
 
 		ReplaceWithNR: replaceWithNR,
@@ -284,6 +286,7 @@ func init() {
 	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separater of multiple filters`)
 
 	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern`)
+	RootCmd.Flags().StringP("list-sep", "s", "\n", `separater for list of found paths`)
 	RootCmd.Flags().BoolP("list-abs", "a", false, `list absolute path, using along with -l/--list`)
 
 	RootCmd.Flags().StringP("kv-file", "k", "",
@@ -548,6 +551,7 @@ Special replacement symbols:
 		var err error
 
 		go func() {
+			first := true
 			for op := range opCH {
 				if opt.ListPath {
 					if opt.ListAbsPath {
@@ -556,7 +560,12 @@ Special replacement symbols:
 					} else {
 						outPath = op.source
 					}
-					fmt.Println(outPath)
+					if first {
+						fmt.Print(outPath)
+						first = false
+					} else {
+						fmt.Print(opt.ListPathSep + outPath)
+					}
 					continue
 				}
 				if int(op.code) >= opt.Verbose {
@@ -601,6 +610,9 @@ Special replacement symbols:
 					nErr++
 					continue
 				}
+			}
+			if opt.ListPath {
+				fmt.Println()
 			}
 			done <- 1
 		}()
