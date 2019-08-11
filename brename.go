@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.9.0"
+var version = "2.10.0"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
@@ -127,6 +127,8 @@ func getOptions(cmd *cobra.Command) *Options {
 		os.Exit(1)
 	}
 
+	rewildcard := regexp.MustCompile(`^\*`)
+
 	infilters := getFlagStringSlice(cmd, "include-filters")
 	infilterRes := make([]*regexp.Regexp, 0, 10)
 	var infilterRe *regexp.Regexp
@@ -135,7 +137,24 @@ func getOptions(cmd *cobra.Command) *Options {
 			log.Errorf("value of flag -f/--include-filters missing")
 			os.Exit(1)
 		}
-		infilterRe, err = regexp.Compile("(?i)" + infilter)
+		if rewildcard.MatchString(infilter) {
+			log.Warningf("Are you using wildcard for -f/--include-filters? It should be regular expression: %s", infilter)
+		}
+		if !(infilter == "./" || infilter == "." || infilter == "..") {
+			existed, err := pathutil.Exists(infilter)
+			if err != nil {
+				log.Warningf("something wrong when trying to check whether %s is a existed file", infilter)
+			}
+			if existed {
+				log.Warningf("Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: %s", infilter)
+			}
+		}
+
+		if ignoreCase {
+			infilterRe, err = regexp.Compile("(?i)" + infilter)
+		} else {
+			infilterRe, err = regexp.Compile(infilter)
+		}
 		if err != nil {
 			log.Errorf("illegal regular expression for include filter: %s", infilter)
 			os.Exit(1)
@@ -151,12 +170,39 @@ func getOptions(cmd *cobra.Command) *Options {
 			log.Errorf("value of flag -F/--exclude-filters missing")
 			os.Exit(1)
 		}
-		exfilterRe, err = regexp.Compile("(?i)" + exfilter)
+		if rewildcard.MatchString(exfilter) {
+			log.Warningf("Are you using wildcard for -F/--exclude-filters? It should be regular expression: %s", exfilter)
+		}
+		if !(exfilter == "./" || exfilter == "." || exfilter == "..") {
+			existed, err := pathutil.Exists(exfilter)
+			if err != nil {
+				log.Warningf("something wrong when trying to check whether %s is a existed file", exfilter)
+			}
+			if existed {
+				log.Warningf("Seems you are using wildcard for -F/--exclude-filters? Make sure using regular expression: %s", exfilter)
+			}
+		}
+
+		if ignoreCase {
+			exfilterRe, err = regexp.Compile("(?i)" + exfilter)
+		} else {
+			exfilterRe, err = regexp.Compile(exfilter)
+		}
 		if err != nil {
 			log.Errorf("illegal regular expression for exclude filter: %s", exfilter)
 			os.Exit(1)
 		}
 		exfilterRes = append(exfilterRes, exfilterRe)
+	}
+
+	log.Info("main options:")
+	log.Infof("  ignore case: %v", ignoreCase)
+	log.Infof("  search pattern: %s", p)
+	if len(infilters) > 0 {
+		log.Infof("  include filters: %s", strings.Join(infilters, ", "))
+	}
+	if len(exfilters) > 0 {
+		log.Infof("  exclude filters: %s", strings.Join(exfilters, ", "))
 	}
 
 	replacement := getFlagString(cmd, "replacement")
@@ -279,11 +325,11 @@ func init() {
 	RootCmd.Flags().BoolP("including-dir", "D", false, "rename directories")
 	RootCmd.Flags().BoolP("only-dir", "", false, "only rename directories")
 	RootCmd.Flags().IntP("max-depth", "", 0, "maximum depth for recursive search (0 for no limit)")
-	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case")
+	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case of -p/--pattern, -f/--include-filters and -F/--exclude-filters")
 	RootCmd.Flags().BoolP("ignore-ext", "e", false, "ignore file extension. i.e., replacement does not change file extension")
 
-	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, case ignored). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters`)
-	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, case ignored). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters`)
+	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters`)
+	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters`)
 
 	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern`)
 	RootCmd.Flags().StringP("list-sep", "s", "\n", `separator for list of found paths`)
@@ -300,7 +346,7 @@ func init() {
 	RootCmd.Flags().IntP("overwrite-mode", "o", 0, "overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)")
 
 	RootCmd.Flags().BoolP("undo", "u", false, "undo the LAST successful operation")
-	RootCmd.Flags().BoolP("force-undo", "U", false, "continue undo even when some operation failed")
+	RootCmd.Flags().BoolP("force-undo", "U", false, "continue undo even when some operations failed")
 
 	RootCmd.Example = `  1. dry run and showing potential dangerous operations
       brename -p "abc" -d
@@ -327,7 +373,7 @@ func init() {
   More examples: https://github.com/shenwei356/brename`
 
 	RootCmd.SetUsageTemplate(`Usage:{{if .Runnable}}
-  {{if .HasAvailableFlags}}{{appendIfNotPresent .UseLine "[flags]"}}{{else}}{{.UseLine}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+  {{if .HasAvailableFlags}}{{appendIfNotPresent .UseLine "[path ...]"}}{{else}}{{.UseLine}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
   {{ .CommandPath}} [command]{{end}} {{if gt .Aliases 0}}
 
 Aliases:
@@ -374,15 +420,16 @@ func getFileList(args []string) []string {
 	if len(args) == 0 {
 		files = append(files, "./")
 	} else {
-		for _, file := range files {
-			if file == "./" {
+		for _, file := range args {
+			if file == "./" || file == "." || file == ".." {
 				continue
 			}
 			if _, err := os.Stat(file); os.IsNotExist(err) {
-				checkError(err)
+				log.Errorf("given search paths not existed: %s", file)
 			}
+
+			files = append(files, file)
 		}
-		files = args
 	}
 	return files
 }
@@ -617,7 +664,12 @@ Special replacement symbols:
 			done <- 1
 		}()
 
-		for _, path := range getFileList(args) {
+		paths := getFileList(args)
+
+		log.Infof("  search paths: %s", strings.Join(paths, ", "))
+		log.Info()
+
+		for _, path := range paths {
 			err = walk(opt, opCH, path, 1)
 			if err != nil {
 				close(opCH)
@@ -808,6 +860,9 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	_, err := ioutil.ReadFile(path)
 	// it's a file
 	if err == nil {
+		if ignore(opt, filepath.Base(path)) {
+			return nil
+		}
 		if ok, op := checkOperation(opt, path); ok {
 			opCh <- op
 		}

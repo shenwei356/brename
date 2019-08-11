@@ -1,3 +1,7 @@
+- v2.10.0
+    - print main options, including `ignore case`, `search pattern`, `include filters`, `exclude filters`, and `search paths`.
+    - show warning inappropriate value of `-f/--include-filters` and `-F/--exclude-filters`.
+    - fix bug of forgotten filter given files using `-f` and `-F`.
 - v2.9.0
     - add flag `--list-sep` to set separater for list of found paths.
 - v2.8.1
