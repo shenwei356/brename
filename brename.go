@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.10.0"
+var version = "2.10.1"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
@@ -50,6 +50,7 @@ var pathTree map[string]struct{}
 
 // Options is the struct containing all global options
 type Options struct {
+	Quiet   bool
 	Verbose int
 	Version bool
 	DryRun  bool
@@ -95,11 +96,13 @@ var reNR = regexp.MustCompile(`\{(NR|nr)\}`)
 var reKV = regexp.MustCompile(`\{(KV|kv)\}`)
 
 func getOptions(cmd *cobra.Command) *Options {
+	quiet := getFlagBool(cmd, "quiet")
 	undo := getFlagBool(cmd, "undo")
 	forceUndo := getFlagBool(cmd, "force-undo")
 	if undo || forceUndo {
 		return &Options{
 			Undo:             true, // set it true even only force-undo given
+			Quiet:            quiet,
 			ForceUndo:        forceUndo,
 			LastOpDetailFile: ".brename_detail.txt",
 		}
@@ -195,16 +198,6 @@ func getOptions(cmd *cobra.Command) *Options {
 		exfilterRes = append(exfilterRes, exfilterRe)
 	}
 
-	log.Info("main options:")
-	log.Infof("  ignore case: %v", ignoreCase)
-	log.Infof("  search pattern: %s", p)
-	if len(infilters) > 0 {
-		log.Infof("  include filters: %s", strings.Join(infilters, ", "))
-	}
-	if len(exfilters) > 0 {
-		log.Infof("  exclude filters: %s", strings.Join(exfilters, ", "))
-	}
-
 	replacement := getFlagString(cmd, "replacement")
 	kvFile := getFlagString(cmd, "kv-file")
 
@@ -235,10 +228,12 @@ func getOptions(cmd *cobra.Command) *Options {
 			checkError(fmt.Errorf(`since replacement symbol "{kv}"/"{KV}" found in value of flag -r/--replacement, tab-delimited key-value file should be given by flag -k/--kv-file`))
 		}
 
-		if keepKey && keyMissRepl != "" {
+		if keepKey && keyMissRepl != "" && !quiet {
 			log.Warning("flag -m/--key-miss-repl ignored when flag -K/--keep-key given")
 		}
-		log.Infof("read key-value file: %s", kvFile)
+		if !quiet {
+			log.Infof("read key-value file: %s", kvFile)
+		}
 		kvs, err = readKVs(kvFile, ignoreCase)
 		if err != nil {
 			checkError(fmt.Errorf("read key-value file: %s", err))
@@ -247,7 +242,9 @@ func getOptions(cmd *cobra.Command) *Options {
 			checkError(fmt.Errorf("no valid data in key-value file: %s", kvFile))
 		}
 
-		log.Infof("%d pairs of key-value loaded", len(kvs))
+		if !quiet {
+			log.Infof("%d pairs of key-value loaded", len(kvs))
+		}
 	}
 
 	verbose := getFlagNonNegativeInt(cmd, "verbose")
@@ -262,7 +259,20 @@ func getOptions(cmd *cobra.Command) *Options {
 		os.Exit(1)
 	}
 
+	if !quiet {
+		log.Info("main options:")
+		log.Infof("  ignore case: %v", ignoreCase)
+		log.Infof("  search pattern: %s", p)
+		if len(infilters) > 0 {
+			log.Infof("  include filters: %s", strings.Join(infilters, ", "))
+		}
+		if len(exfilters) > 0 {
+			log.Infof("  exclude filters: %s", strings.Join(exfilters, ", "))
+		}
+	}
+
 	return &Options{
+		Quiet:   quiet,
 		Verbose: verbose,
 		Version: version,
 		DryRun:  getFlagBool(cmd, "dry-run"),
@@ -315,6 +325,7 @@ func init() {
 	logging.SetBackend(backendFormatter)
 	log = logging.MustGetLogger(app)
 
+	RootCmd.Flags().BoolP("quiet", "", false, "be quiet")
 	RootCmd.Flags().IntP("verbose", "v", 0, "verbose level (0 for all, 1 for warning and error, 2 for only error) (default 0)")
 	RootCmd.Flags().BoolP("version", "V", false, "print version information and check for update")
 	RootCmd.Flags().BoolP("dry-run", "d", false, "print rename operations but do not run")
@@ -532,7 +543,9 @@ Special replacement symbols:
 			existed, err := pathutil.Exists(opt.LastOpDetailFile)
 			checkError(err)
 			if !existed {
-				log.Infof("no brename operation to undo")
+				if !opt.Quiet {
+					log.Infof("no brename operation to undo")
+				}
 				return
 			}
 
@@ -563,7 +576,9 @@ Special replacement symbols:
 				}
 			}
 			if len(history) == 0 {
-				log.Infof("no brename operation to undo")
+				if !opt.Quiet {
+					log.Infof("no brename operation to undo")
+				}
 				return
 			}
 
@@ -575,14 +590,20 @@ Special replacement symbols:
 				if err != nil {
 					log.Errorf(`fail to rename: '%s' -> '%s': %s`, op.source, op.target, err)
 					if !opt.ForceUndo {
-						log.Infof("%d path(s) renamed", n)
+						if !opt.Quiet {
+							log.Infof("%d path(s) renamed", n)
+						}
 						os.Exit(1)
 					}
 				}
 				n++
-				log.Infof("rename back: '%s' -> '%s'", op.target, op.source)
+				if !opt.Quiet {
+					log.Infof("rename back: '%s' -> '%s'", op.target, op.source)
+				}
 			}
-			log.Infof("%d path(s) renamed", n)
+			if !opt.Quiet {
+				log.Infof("%d path(s) renamed", n)
+			}
 
 			checkError(os.Remove(opt.LastOpDetailFile))
 			return
@@ -618,17 +639,25 @@ Special replacement symbols:
 				if int(op.code) >= opt.Verbose {
 					switch op.code {
 					case codeOK:
-						log.Infof("checking: %s\n", op)
+						if !opt.Quiet {
+							log.Infof("checking: %s\n", op)
+						}
 					case codeUnchanged:
-						log.Warningf("checking: %s\n", op)
+						if !opt.Quiet {
+							log.Warningf("checking: %s\n", op)
+						}
 					case codeExisted, codeOverwriteNewPath:
 						switch opt.OverwriteMode {
 						case 0: // report error
 							log.Errorf("checking: %s\n", op)
 						case 1: // overwrite
-							log.Warningf("checking: %s (will be overwrited)\n", op)
+							if !opt.Quiet {
+								log.Warningf("checking: %s (will be overwrited)\n", op)
+							}
 						case 2: // no renaming
-							log.Warningf("checking: %s (will NOT be overwrited)\n", op)
+							if !opt.Quiet {
+								log.Warningf("checking: %s (will NOT be overwrited)\n", op)
+							}
 						}
 					case codeMissingTarget:
 						log.Errorf("checking: %s\n", op)
@@ -666,8 +695,10 @@ Special replacement symbols:
 
 		paths := getFileList(args)
 
-		log.Infof("  search paths: %s", strings.Join(paths, ", "))
-		log.Info()
+		if !opt.Quiet {
+			log.Infof("  search paths: %s", strings.Join(paths, ", "))
+			log.Info()
+		}
 
 		for _, path := range paths {
 			err = walk(opt, opCH, path, 1)
@@ -687,7 +718,9 @@ Special replacement symbols:
 		if opt.ListPath {
 			return
 		}
-		log.Infof("%d path(s) to be renamed", n)
+		if !opt.Quiet {
+			log.Infof("%d path(s) to be renamed", n)
+		}
 		if n == 0 {
 			return
 		}
@@ -724,12 +757,16 @@ Special replacement symbols:
 				log.Errorf(`fail to rename: '%s' -> '%s': %s`, op.source, op.target, err)
 				os.Exit(1)
 			}
-			log.Infof("renamed: '%s' -> '%s'", op.source, op.target)
+			if !opt.Quiet {
+				log.Infof("renamed: '%s' -> '%s'", op.source, op.target)
+			}
 			bfh.WriteString(fmt.Sprintf("%s%s%s\n", op.source, delimiter, op.target))
 			n2++
 		}
 
-		log.Infof("%d path(s) renamed", n2)
+		if !opt.Quiet {
+			log.Infof("%d path(s) renamed", n2)
+		}
 	},
 }
 
@@ -872,7 +909,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	// it's a directory
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
-		log.Warning(err)
+		return fmt.Errorf("err on reading dir: %s", path)
 	}
 
 	var filename string
