@@ -325,7 +325,7 @@ func init() {
 	logging.SetBackend(backendFormatter)
 	log = logging.MustGetLogger(app)
 
-	RootCmd.Flags().BoolP("quiet", "", false, "be quiet")
+	RootCmd.Flags().BoolP("quiet", "q", false, "be quiet, do not show information and warning")
 	RootCmd.Flags().IntP("verbose", "v", 0, "verbose level (0 for all, 1 for warning and error, 2 for only error) (default 0)")
 	RootCmd.Flags().BoolP("version", "V", false, "print version information and check for update")
 	RootCmd.Flags().BoolP("dry-run", "d", false, "print rename operations but do not run")
