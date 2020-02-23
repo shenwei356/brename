@@ -36,13 +36,14 @@ import (
 	"github.com/mattn/go-colorable"
 	"github.com/shenwei356/breader"
 	"github.com/shenwei356/go-logging"
+	"github.com/shenwei356/natsort"
 	"github.com/shenwei356/util/pathutil"
 	"github.com/spf13/cobra"
 )
 
 var log *logging.Logger
 
-var version = "2.10.1"
+var version = "2.10.2"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
@@ -73,6 +74,7 @@ type Options struct {
 	ListPath    bool
 	ListPathSep string
 	ListAbsPath bool
+	NatureSort  bool
 
 	ReplaceWithNR bool
 	StartNum      int
@@ -295,6 +297,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		ListPath:    getFlagBool(cmd, "list"),
 		ListPathSep: getFlagString(cmd, "list-sep"),
 		ListAbsPath: getFlagBool(cmd, "list-abs"),
+		NatureSort:  getFlagBool(cmd, "nature-sort"),
 
 		ReplaceWithNR: replaceWithNR,
 		StartNum:      getFlagNonNegativeInt(cmd, "start-num"),
@@ -345,6 +348,7 @@ func init() {
 	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern`)
 	RootCmd.Flags().StringP("list-sep", "s", "\n", `separator for list of found paths`)
 	RootCmd.Flags().BoolP("list-abs", "a", false, `list absolute path, using along with -l/--list`)
+	RootCmd.Flags().BoolP("nature-sort", "N", false, `list paths in nature sort, using along with -l/--list`)
 
 	RootCmd.Flags().StringP("kv-file", "k", "",
 		`tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)`)
@@ -930,6 +934,9 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	}
 
 	if !opt.OnlyDir {
+		if opt.ListPath && opt.NatureSort {
+			natsort.Sort(_files)
+		}
 		for _, filename := range _files {
 			if ignore(opt, filename) {
 				continue
@@ -942,6 +949,9 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	}
 
 	// sub directory
+	if opt.ListPath && opt.NatureSort {
+		natsort.Sort(_dirs)
+	}
 	for _, filename := range _dirs {
 		if (opt.OnlyDir || opt.IncludingDir) && ignore(opt, filename) {
 			continue

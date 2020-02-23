@@ -1,3 +1,7 @@
+- v2.10.2
+    - new flag -N/--nature-sort for listing path in nature sort.
+- v2.10.1
+    - new flag --quiet for hiding information and warnings.
 - v2.10.0
     - print main options, including `ignore case`, `search pattern`, `include filters`, `exclude filters`, and `search paths`.
     - show warning inappropriate value of `-f/--include-filters` and `-F/--exclude-filters`.
