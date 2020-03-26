@@ -1,4 +1,4 @@
-- v2.10.2
+- v2.11.0
     - new flag `-N/--nature-sort` for listing path in nature sort.
 - v2.10.1
     - new flag `--quiet` for hiding information and warnings.

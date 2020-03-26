@@ -43,7 +43,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.10.2"
+var version = "2.11.0"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
