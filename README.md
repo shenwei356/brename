@@ -95,14 +95,14 @@ And then:
 
 brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.10.0
+Version: 2.10.2
 
 Author: Wei Shen <shenwei356@gmail.com>
 
 Homepage: https://github.com/shenwei356/brename
 
 Attention:
-  1. Paths starting with "." is ignored.
+  1. Paths starting with "." are ignored.
   2. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
      e.g., -f ".html" -f ".htm".
      But ATTENTION: comma in filter is treated as separator of multiple filters.
@@ -114,7 +114,7 @@ Special replacement symbols:
           n can be specified by flag -I/--key-capt-idx (default: 1)
 
 Usage:
-  brename [flags] [path ...]
+  brename [flags] [path ...] 
 
 Examples:
   1. dry run and showing potential dangerous operations
@@ -158,10 +158,12 @@ Flags:
   -a, --list-abs                  list absolute path, using along with -l/--list
   -s, --list-sep string           separator for list of found paths (default "\n")
       --max-depth int             maximum depth for recursive search (0 for no limit)
+  -N, --nature-sort               list paths in nature sort, using along with -l/--list
       --nr-width int              minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3 (default 1)
       --only-dir                  only rename directories
   -o, --overwrite-mode int        overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)
   -p, --pattern string            search pattern (regular expression)
+  -q, --quiet                     be quiet, do not show information and warning
   -R, --recursive                 rename recursively
   -r, --replacement string        replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"
   -n, --start-num int             starting number when using {nr} in replacement (default 1)

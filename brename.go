@@ -521,7 +521,7 @@ Author: Wei Shen <shenwei356@gmail.com>
 Homepage: https://github.com/shenwei356/brename
 
 Attention:
-  1. Paths starting with "." is ignored.
+  1. Paths starting with "." are ignored.
   2. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
      e.g., -f ".html" -f ".htm".
      But ATTENTION: comma in filter is treated as separator of multiple filters.
