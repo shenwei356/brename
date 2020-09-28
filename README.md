@@ -19,6 +19,7 @@
 - [Real-world examples](#real-world-examples)
 - [Contact](#contact)
 - [License](#license)
+- [Starchart](#starchart)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -585,3 +586,7 @@ propose new functions or ask for help.
 ## License
 
 [MIT License](https://github.com/shenwei356/brename/blob/master/LICENSE)
+
+## Starchart
+
+<img src="https://starchart.cc/shenwei356/brename.svg" alt="Stargazers over time" style="max-width: 100%">
