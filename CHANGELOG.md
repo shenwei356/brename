@@ -1,3 +1,5 @@
+- v2.11.1
+    - fix bug of forgetting renaming the given root directories. [#21](https://github.com/shenwei356/brename/issues/21)
 - v2.11.0
     - new flag `-N/--nature-sort` for listing path in nature sort.
 - v2.10.1

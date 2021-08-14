@@ -1,4 +1,4 @@
-// Copyright © 2013-2019 Wei Shen <shenwei356@gmail.com>
+// Copyright © 2013-2021 Wei Shen <shenwei356@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -43,7 +43,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.11.0"
+var version = "2.11.1"
 var app = "brename"
 
 // for detecting one case where two or more files are renamed to same new path
