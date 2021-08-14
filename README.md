@@ -90,6 +90,10 @@ And then:
 
     yaourt -S brename
 
+#### Method 4: For Scoop users
+
+    scoop install brename
+
 ## Usage
 
 ```
