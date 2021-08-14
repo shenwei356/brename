@@ -972,6 +972,17 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 		}
 	}
 
+	if depth > 1 {
+		return nil
+	}
+
+	// rename the given root directory
+	if (opt.OnlyDir || opt.IncludingDir) && !ignore(opt, path) {
+		if ok, op := checkOperation(opt, path); ok {
+			opCh <- op
+		}
+	}
+
 	return nil
 }
 
