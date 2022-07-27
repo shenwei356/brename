@@ -573,7 +573,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
             $ tree -Q
             .
             ├── "0000 Test.pdf"
-            ├── "2016 SeqKit _ A Cross-Platform and Ultrafast Toolkit for FASTA\342\201\204Q File Manipulation .pdf"
+            ├── "2016 SeqKit: A Cross-Platform and Ultrafast Toolkit for FASTA\342\201\204Q File Manipulation .pdf"
             ├── "metagenomics"
             │   ├── "2017 16S rRNA gene sequencing and healthy reference ranges for 28 clinically relevant microbial taxa from the human gut microbiome .pdf"
             │   ├── "2017 De novo assembly of viral quasispecies using overlap graphs .pdf"
@@ -585,7 +585,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
             $ brename -p "[\n'\?]" -r " " -R
             
-    1. Replacing ":" with "_"
+    1. Replacing ":" with " _"
 
             $ brename -p ":" -r " _" -R
 
