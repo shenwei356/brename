@@ -27,7 +27,7 @@
 
 - **Cross-platform**. Supporting Windows, Mac OS X and Linux.
 - **Safe**. By ***checking potential conflicts and errors***.
-- **Supporting Undo**.
+- **Supporting Undo** the LAST successful operation.
 - **Overwrite can be detected and users can choose whether overwrite or leave it**.
 - **File filtering**. Supporting including and excluding files via regular expression.
     No need to run commands like `find ./ -name "*.html" -exec CMD`.
@@ -98,9 +98,9 @@ And then:
 #### Method 5: Compiling from source
 
     # download Go from https://go.dev/dl
-    wget https://go.dev/dl/go1.17.12.linux-amd64.tar.gz
+    wget https://go.dev/dl/go1.17.13.linux-amd64.tar.gz
     
-    tar -zxf go1.17.12.linux-amd64.tar.gz -C $HOME/
+    tar -zxf go1.17.13.linux-amd64.tar.gz -C $HOME/
     
     # or 
     #   echo "export PATH=$PATH:$HOME/go/bin" >> ~/.bashrc
