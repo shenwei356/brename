@@ -1,4 +1,4 @@
-// Copyright © 2013-2021 Wei Shen <shenwei356@gmail.com>
+// Copyright © 2013-2022 Wei Shen <shenwei356@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +24,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -43,8 +42,9 @@ import (
 
 var log *logging.Logger
 
-var version = "2.11.1"
+var version = "2.12.0"
 var app = "brename"
+var LastOpDetailFile = ".brename_detail.txt"
 
 // for detecting one case where two or more files are renamed to same new path
 var pathTree map[string]struct{}
@@ -67,8 +67,10 @@ type Options struct {
 	IgnoreExt    bool
 
 	IncludeFilters   []string
+	SkipFilters      []string
 	ExcludeFilters   []string
 	IncludeFilterRes []*regexp.Regexp
+	SkipFilterRes    []*regexp.Regexp
 	ExcludeFilterRes []*regexp.Regexp
 
 	ListPath    bool
@@ -92,6 +94,9 @@ type Options struct {
 	Undo             bool
 	ForceUndo        bool
 	LastOpDetailFile string
+
+	DisableUndo        bool
+	ClearOpDetailFiles bool
 }
 
 var reNR = regexp.MustCompile(`\{(NR|nr)\}`)
@@ -106,9 +111,21 @@ func getOptions(cmd *cobra.Command) *Options {
 			Undo:             true, // set it true even only force-undo given
 			Quiet:            quiet,
 			ForceUndo:        forceUndo,
-			LastOpDetailFile: ".brename_detail.txt",
+			LastOpDetailFile: LastOpDetailFile,
 		}
 	}
+
+	clearLastOpDetailFiles := getFlagBool(cmd, "clear")
+	if clearLastOpDetailFiles {
+		return &Options{
+			ClearOpDetailFiles: true,
+			Quiet:              quiet,
+			LastOpDetailFile:   LastOpDetailFile,
+			Recursive:          getFlagBool(cmd, "recursive"),
+		}
+	}
+
+	disableUndo := getFlagBool(cmd, "disable-undo")
 
 	version := getFlagBool(cmd, "version")
 	if version {
@@ -136,7 +153,6 @@ func getOptions(cmd *cobra.Command) *Options {
 
 	infilters := getFlagStringSlice(cmd, "include-filters")
 	infilterRes := make([]*regexp.Regexp, 0, 10)
-	var infilterRe *regexp.Regexp
 	for _, infilter := range infilters {
 		if infilter == "" {
 			log.Errorf("value of flag -f/--include-filters missing")
@@ -155,6 +171,7 @@ func getOptions(cmd *cobra.Command) *Options {
 			}
 		}
 
+		var infilterRe *regexp.Regexp
 		if ignoreCase {
 			infilterRe, err = regexp.Compile("(?i)" + infilter)
 		} else {
@@ -167,9 +184,31 @@ func getOptions(cmd *cobra.Command) *Options {
 		infilterRes = append(infilterRes, infilterRe)
 	}
 
+	skipfilters := getFlagStringSlice(cmd, "skip-filters")
+	skipRes := make([]*regexp.Regexp, 0, 10)
+	for _, skipfilter := range skipfilters {
+		if skipfilter == "" {
+			log.Errorf("value of flag -S/--skip-filters missing")
+			os.Exit(1)
+		}
+		if rewildcard.MatchString(skipfilter) {
+			log.Warningf("Are you using wildcard for -S/--skip-filters? It should be regular expression: %s", skipfilter)
+		}
+		var exfilterRe *regexp.Regexp
+		if ignoreCase {
+			exfilterRe, err = regexp.Compile("(?i)" + skipfilter)
+		} else {
+			exfilterRe, err = regexp.Compile(skipfilter)
+		}
+		if err != nil {
+			log.Errorf("illegal regular expression for skip filter: %s", skipfilter)
+			os.Exit(1)
+		}
+		skipRes = append(skipRes, exfilterRe)
+	}
+
 	exfilters := getFlagStringSlice(cmd, "exclude-filters")
 	exfilterRes := make([]*regexp.Regexp, 0, 10)
-	var exfilterRe *regexp.Regexp
 	for _, exfilter := range exfilters {
 		if exfilter == "" {
 			log.Errorf("value of flag -F/--exclude-filters missing")
@@ -188,6 +227,7 @@ func getOptions(cmd *cobra.Command) *Options {
 			}
 		}
 
+		var exfilterRe *regexp.Regexp
 		if ignoreCase {
 			exfilterRe, err = regexp.Compile("(?i)" + exfilter)
 		} else {
@@ -266,10 +306,13 @@ func getOptions(cmd *cobra.Command) *Options {
 		log.Infof("  ignore case: %v", ignoreCase)
 		log.Infof("  search pattern: %s", p)
 		if len(infilters) > 0 {
-			log.Infof("  include filters: %s", strings.Join(infilters, ", "))
+			log.Infof("     skip filters: %s", strings.Join(skipfilters, ", "))
 		}
 		if len(exfilters) > 0 {
 			log.Infof("  exclude filters: %s", strings.Join(exfilters, ", "))
+		}
+		if len(infilters) > 0 {
+			log.Infof("  include filters: %s", strings.Join(infilters, ", "))
 		}
 	}
 
@@ -291,6 +334,8 @@ func getOptions(cmd *cobra.Command) *Options {
 
 		IncludeFilters:   infilters,
 		IncludeFilterRes: infilterRes,
+		SkipFilters:      skipfilters,
+		SkipFilterRes:    skipRes,
 		ExcludeFilters:   infilters,
 		ExcludeFilterRes: exfilterRes,
 
@@ -313,7 +358,8 @@ func getOptions(cmd *cobra.Command) *Options {
 		OverwriteMode: overwriteMode,
 
 		Undo:             false,
-		LastOpDetailFile: ".brename_detail.txt",
+		LastOpDetailFile: LastOpDetailFile,
+		DisableUndo:      disableUndo,
 	}
 }
 
@@ -343,6 +389,7 @@ func init() {
 	RootCmd.Flags().BoolP("ignore-ext", "e", false, "ignore file extension. i.e., replacement does not change file extension")
 
 	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters`)
+	RootCmd.Flags().StringSliceP("skip-filters", "S", []string{`^\.`}, `skip file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -S "^\." for skipping files starting with a dot, but ATTENTION: comma in filter is treated as separator of multiple filters`)
 	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters`)
 
 	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern`)
@@ -362,6 +409,8 @@ func init() {
 
 	RootCmd.Flags().BoolP("undo", "u", false, "undo the LAST successful operation")
 	RootCmd.Flags().BoolP("force-undo", "U", false, "continue undo even when some operations failed")
+	RootCmd.Flags().BoolP("disable-undo", "x", false, "do not create .brename_detail.txt file for undo")
+	RootCmd.Flags().BoolP("clear", "", false, `remove all .brename_detail.txt" file, you may need to add -R/--recursive to recursivel clear all files in given path`)
 
 	RootCmd.Example = `  1. dry run and showing potential dangerous operations
       brename -p "abc" -d
@@ -384,6 +433,12 @@ func init() {
       brename -i -f '.docx?$' -p . -R -l
   10. undo the LAST successful operation
       brename -u
+  11. disable undo if you do not want to create .brename_detail.txt (-x)
+      brename -p xxx -r yyy -x
+  12. clear/remove all .brename_detail.txt files (--clear)
+      brename --clear -R
+  13. also operate on hiden files: empty -S (default: ^\.)
+      brename -p xxx -r yyy -S ""
 
   More examples: https://github.com/shenwei356/brename`
 
@@ -444,6 +499,9 @@ func getFileList(args []string) []string {
 			}
 
 			files = append(files, file)
+		}
+		if len(args) == 0 {
+			files = append(files, "./")
 		}
 	}
 	return files
@@ -520,11 +578,22 @@ Author: Wei Shen <shenwei356@gmail.com>
 
 Homepage: https://github.com/shenwei356/brename
 
-Attention:
-  1. Paths starting with "." are ignored.
-  2. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
-     e.g., -f ".html" -f ".htm".
-     But ATTENTION: comma in filter is treated as separator of multiple filters.
+
+Three path filters:
+
+  1. -S/--skip-filters       black list     default value: ^\. (skipping paths starting with ".")
+  2. -F/--exclude-filters    black list     no default value
+  3. -f/--include-filters    white list     default value: .   (anything)
+  
+  Notes: 
+  1. Paths starting with "." are ignored by default, disable this with -S "".
+  2. These options support multiple values, e.g., -f ".html" -f ".htm".
+     But ATTENTION: each comma in filters is treated as a separator of multiple filters.
+     Please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'
+  3. The three filters are performed in order of -S, -F, -f.
+  4. -F/--exclude-filters is prefered for excluding path, cause it has no default value.
+     Setting -S/--skip-filters will overwrite its default value.
+
 
 Special replacement symbols:
 
@@ -542,6 +611,20 @@ Special replacement symbols:
 			return
 		}
 
+		// ------------------------------------------------
+		// clear
+		if opt.ClearOpDetailFiles {
+			paths := getFileList(args)
+
+			for _, path := range paths {
+				checkError(clear(opt, path, 1))
+			}
+
+			return
+		}
+
+		// ------------------------------------------------
+		// undo
 		var delimiter = "\t_shenwei356-brename_\t"
 		if opt.Undo {
 			existed, err := pathutil.Exists(opt.LastOpDetailFile)
@@ -613,6 +696,8 @@ Special replacement symbols:
 			return
 		}
 
+		// ------------------------------------------------
+		// rename
 		ops := make([]operation, 0, 1000)
 		opCH := make(chan operation, 100)
 		done := make(chan int)
@@ -734,13 +819,16 @@ Special replacement symbols:
 		}
 
 		var fh *os.File
-		fh, err = os.Create(opt.LastOpDetailFile)
-		checkError(err)
-		bfh := bufio.NewWriter(fh)
-		defer func() {
-			checkError(bfh.Flush())
-			fh.Close()
-		}()
+		var bfh *bufio.Writer
+		if !opt.DisableUndo {
+			fh, err = os.Create(opt.LastOpDetailFile)
+			checkError(err)
+			bfh = bufio.NewWriter(fh)
+			defer func() {
+				checkError(bfh.Flush())
+				fh.Close()
+			}()
+		}
 
 		var n2 int
 		var targetDir string
@@ -764,7 +852,9 @@ Special replacement symbols:
 			if !opt.Quiet {
 				log.Infof("renamed: '%s' -> '%s'", op.source, op.target)
 			}
-			bfh.WriteString(fmt.Sprintf("%s%s%s\n", op.source, delimiter, op.target))
+			if !opt.DisableUndo {
+				bfh.WriteString(fmt.Sprintf("%s%s%s\n", op.source, delimiter, op.target))
+			}
 			n2++
 		}
 
@@ -881,6 +971,12 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 }
 
 func ignore(opt *Options, path string) bool {
+	for _, re := range opt.SkipFilterRes {
+		if re.MatchString(path) {
+			return true
+		}
+	}
+
 	for _, re := range opt.ExcludeFilterRes {
 		if re.MatchString(path) {
 			return true
@@ -894,11 +990,92 @@ func ignore(opt *Options, path string) bool {
 	return true
 }
 
+func clear(opt *Options, path string, depth int) error {
+	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
+		return nil
+	}
+	_, err := os.ReadFile(path)
+	// it's a file
+	if err == nil {
+		if filepath.Base(path) == opt.LastOpDetailFile {
+			err = os.Remove(path)
+			if err == nil {
+				if !opt.Quiet {
+					log.Infof("removed: %s", path)
+				}
+			} else {
+				log.Warningf("failed to remove %s", path)
+				return err
+			}
+		}
+		return nil
+	}
+
+	// it's a directory
+	files, err := os.ReadDir(path)
+	if err != nil {
+		// return fmt.Errorf("err on reading dir: %s", path)
+		return nil
+	}
+
+	var filename string
+	_dirs := make([]string, 0, len(files))
+	for _, file := range files {
+		filename = file.Name()
+
+		if file.IsDir() {
+			_dirs = append(_dirs, filename)
+		}
+
+		if filename == opt.LastOpDetailFile {
+			file1 := filepath.Join(path, opt.LastOpDetailFile)
+			err = os.Remove(file1)
+			if err == nil {
+				if !opt.Quiet {
+					log.Infof("removed: %s", file1)
+				}
+			} else {
+				log.Warningf("failed to remove %s", file1)
+			}
+		}
+	}
+
+	// sub directory
+	for _, filename := range _dirs {
+		fileFullPath := filepath.Join(path, filename)
+		if opt.Recursive {
+			err := clear(opt, fileFullPath, depth+1)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if depth > 1 {
+		return nil
+	}
+
+	// check the given root directory
+	file1 := filepath.Join(path, opt.LastOpDetailFile)
+	if _, err = os.Stat(file1); err == nil {
+		err = os.Remove(file1)
+		if err == nil {
+			if !opt.Quiet {
+				log.Infof("removed: %s", file1)
+			}
+		} else {
+			log.Warningf("failed to remove %s", file1)
+		}
+	}
+
+	return nil
+}
+
 func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
 		return nil
 	}
-	_, err := ioutil.ReadFile(path)
+	_, err := os.ReadFile(path)
 	// it's a file
 	if err == nil {
 		if ignore(opt, filepath.Base(path)) {
@@ -911,7 +1088,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	}
 
 	// it's a directory
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		return fmt.Errorf("err on reading dir: %s", path)
 	}
@@ -922,7 +1099,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	for _, file := range files {
 		filename = file.Name()
 
-		if filename[0] == '.' {
+		if filename == "." || filename == ".." { // TODO
 			continue
 		}
 

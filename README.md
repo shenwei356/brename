@@ -124,17 +124,28 @@ And then:
 
 brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.11.1
+Version: 2.12.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
 Homepage: https://github.com/shenwei356/brename
 
-Attention:
-  1. Paths starting with "." are ignored.
-  2. Flag -f/--include-filters and -F/--exclude-filters support multiple values,
-     e.g., -f ".html" -f ".htm".
-     But ATTENTION: comma in filter is treated as separator of multiple filters.
+
+Three path filters:
+
+  1. -S/--skip-filters       black list     default value: ^\. (skipping paths starting with ".")
+  2. -F/--exclude-filters    black list     no default value
+  3. -f/--include-filters    white list     default value: .   (anything)
+  
+  Notes: 
+  1. Paths starting with "." are ignored by default, disable this with -S "".
+  2. These options support multiple values, e.g., -f ".html" -f ".htm".
+     But ATTENTION: each comma in filters is treated as a separator of multiple filters.
+     Please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'
+  3. The three filters are performed in order of -S, -F, -f.
+  4. -F/--exclude-filters is prefered for excluding path, cause it has no default value.
+     Setting -S/--skip-filters will overwrite its default value.
+
 
 Special replacement symbols:
 
@@ -167,10 +178,18 @@ Examples:
       brename -i -f '.docx?$' -p . -R -l
   10. undo the LAST successful operation
       brename -u
+  11. disable undo if you do not want to create .brename_detail.txt (-x)
+      brename -p xxx -r yyy -x
+  12. clear/remove all .brename_detail.txt files (--clear)
+      brename --clear -R
+  13. also operate on hiden files: empty -S (default: ^\.)
+      brename -p xxx -r yyy -S ""
 
   More examples: https://github.com/shenwei356/brename
 
 Flags:
+      --clear                     remove all .brename_detail.txt" file, you may need to add -R/--recursive to recursivel clear all files in given path
+  -x, --disable-undo              do not create .brename_detail.txt file for undo
   -d, --dry-run                   print rename operations but do not run
   -F, --exclude-filters strings   exclude file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters
   -U, --force-undo                continue undo even when some operations failed
@@ -195,6 +214,7 @@ Flags:
   -q, --quiet                     be quiet, do not show information and warning
   -R, --recursive                 rename recursively
   -r, --replacement string        replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"
+  -S, --skip-filters strings      skip file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -S "^\." for skipping files starting with a dot, but ATTENTION: comma in filter is treated as separator of multiple filters (default [^\.])
   -n, --start-num int             starting number when using {nr} in replacement (default 1)
   -u, --undo                      undo the LAST successful operation
   -v, --verbose int               verbose level (0 for all, 1 for warning and error, 2 for only error) (default 0)
@@ -267,6 +287,14 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         [INFO] rename back: 'b.jpg' -> 'b.jpeg'
         [INFO] rename back: 'a.jpg' -> 'a.jpeg'
         [INFO] 2 path(s) renamed
+        
+   Disable undo if you do not want to create .brename_detail.txt (`-x`)
+   
+        $ brename -p xxx -r yyy -x
+        
+   Clear/remove all .brename_detail.txt files (`--clear`)
+  
+        $ brename --clear -R
     
 1. Dry run and only showing operations that will cause error (`-v/--verbose`)
 
@@ -411,6 +439,13 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         [INFO] checking: [ ok ] 'AA.jpg' -> 'A A . j p g '
         [INFO] checking: [ ok ] 'b.jpg' -> 'b . j p g '
         [INFO] 2 path(s) to be renamed
+        
+1. Skipping files via skip filter (regular expression) (`-S/--skip-filters`). This filter step is performed before the exclude filters.
+  The default value `^\.` is for skipping files starting with dot, which are hidden configuration files in Linux.
+  If you do not want to skip these paths, just empty it.
+  
+        $ brename -p xxx -r yyy -S ""
+
 
 1. Do not touch file extension (`-e/--ignore-ext`)
 
