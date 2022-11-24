@@ -188,7 +188,7 @@ Examples:
   More examples: https://github.com/shenwei356/brename
 
 Flags:
-      --clear                     remove all .brename_detail.txt" file, you may need to add -R/--recursive to recursivel clear all files in given path
+      --clear                     remove all .brename_detail.txt" file, you may need to add -R/--recursive to recursively clear all files in the given path
   -x, --disable-undo              do not create .brename_detail.txt file for undo
   -d, --dry-run                   print rename operations but do not run
   -F, --exclude-filters strings   exclude file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters
