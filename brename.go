@@ -437,7 +437,7 @@ func init() {
       brename -p xxx -r yyy -x
   12. clear/remove all .brename_detail.txt files (--clear)
       brename --clear -R
-  13. also operate on hiden files: empty -S (default: ^\.)
+  13. also operate on hidden files: empty -S (default: ^\.)
       brename -p xxx -r yyy -S ""
 
   More examples: https://github.com/shenwei356/brename`

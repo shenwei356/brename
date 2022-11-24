@@ -154,7 +154,7 @@ Special replacement symbols:
           n can be specified by flag -I/--key-capt-idx (default: 1)
 
 Usage:
-  brename [flags] [path ...] 
+  brename [flags] 
 
 Examples:
   1. dry run and showing potential dangerous operations
@@ -182,42 +182,62 @@ Examples:
       brename -p xxx -r yyy -x
   12. clear/remove all .brename_detail.txt files (--clear)
       brename --clear -R
-  13. also operate on hiden files: empty -S (default: ^\.)
+  13. also operate on hidden files: empty -S (default: ^\.)
       brename -p xxx -r yyy -S ""
 
   More examples: https://github.com/shenwei356/brename
 
 Flags:
-      --clear                     remove all .brename_detail.txt" file, you may need to add -R/--recursive to recursively clear all files in the given path
+      --clear                     remove all .brename_detail.txt" file, you may need to add
+                                  -R/--recursive to recursively clear all files in the given path
   -x, --disable-undo              do not create .brename_detail.txt file for undo
   -d, --dry-run                   print rename operations but do not run
-  -F, --exclude-filters strings   exclude file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters
+  -F, --exclude-filters strings   exclude file filter(s) (regular expression, NOT wildcard). multiple
+                                  values supported, e.g., -F ".html" -F ".htm", but ATTENTION: each
+                                  comma in the filter is treated as the separator of multiple filters,
+                                  please use double quotation marks for patterns containing comma, e.g.,
+                                  -p '"A{2,}"
   -U, --force-undo                continue undo even when some operations failed
   -h, --help                      help for brename
   -i, --ignore-case               ignore case of -p/--pattern, -f/--include-filters and -F/--exclude-filters
   -e, --ignore-ext                ignore file extension. i.e., replacement does not change file extension
-  -f, --include-filters strings   include file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: comma in filter is treated as separator of multiple filters (default [.])
+  -f, --include-filters strings   include file filter(s) (regular expression, NOT wildcard). multiple
+                                  values supported, e.g., -f ".html" -f ".htm", but ATTENTION: each
+                                  comma in the filter is treated as the separator of multiple filters,
+                                  please use double quotation marks for patterns containing comma, e.g.,
+                                  -p '"A{2,}"' (default [.])
   -D, --including-dir             rename directories
   -K, --keep-key                  keep the key as value when no value found for the key
   -I, --key-capt-idx int          capture variable index of key (1-based) (default 1)
   -m, --key-miss-repl string      replacement for key with no corresponding value
-  -k, --kv-file string            tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)
+  -k, --kv-file string            tab-delimited key-value file for replacing key with value when using
+                                  "{kv}" in -r (--replacement)
   -l, --list                      only list paths that match pattern
   -a, --list-abs                  list absolute path, using along with -l/--list
   -s, --list-sep string           separator for list of found paths (default "\n")
       --max-depth int             maximum depth for recursive search (0 for no limit)
   -N, --nature-sort               list paths in nature sort, using along with -l/--list
-      --nr-width int              minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3 (default 1)
+      --nr-width int              minimum width for {nr} in flag -r/--replacement. e.g., formating "1"
+                                  to "001" by --nr-width 3 (default 1)
       --only-dir                  only rename directories
-  -o, --overwrite-mode int        overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)
+  -o, --overwrite-mode int        overwrite mode (0 for reporting error, 1 for overwrite, 2 for not
+                                  renaming) (default 0)
   -p, --pattern string            search pattern (regular expression)
   -q, --quiet                     be quiet, do not show information and warning
   -R, --recursive                 rename recursively
-  -r, --replacement string        replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"
-  -S, --skip-filters strings      skip file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -S "^\." for skipping files starting with a dot, but ATTENTION: comma in filter is treated as separator of multiple filters (default [^\.])
+  -r, --replacement string        replacement. capture variables supported.  e.g. $1 represents the
+                                  first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double
+                                  quotes or use the \ escape character. Ascending integer is also
+                                  supported by "{nr}"
+  -S, --skip-filters strings      skip file filter(s) (regular expression, NOT wildcard). multiple
+                                  values supported, e.g., -S "^\." for skipping files starting with a
+                                  dot, but ATTENTION: each comma in the filter is treated as the
+                                  separator of multiple filters, please use double quotation marks for
+                                  patterns containing comma, e.g., -p '"A{2,}" (default [^\.])
   -n, --start-num int             starting number when using {nr} in replacement (default 1)
   -u, --undo                      undo the LAST successful operation
-  -v, --verbose int               verbose level (0 for all, 1 for warning and error, 2 for only error) (default 0)
+  -v, --verbose int               verbose level (0 for all, 1 for warning and error, 2 for only error)
+                                  (default 0)
   -V, --version                   print version information and check for update
 
 ```
