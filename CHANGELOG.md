@@ -1,7 +1,7 @@
 - v2.12.0
     - new flag `-S/--skip-filters`, its default value `^\.` is for skipping paths starting with `.`.
     - new flag `-x, --disable-undo`: do not create .brename_detail.txt file for undo. [#8](https://github.com/shenwei356/brename/issues/8)
-    - new flag `--clear`: remove all .brename_detail.txt" file, you may need to add `-R/--recursive` to recursivel clear all files in given path.
+    - new flag `--clear`: remove all .brename_detail.txt files, you may need to add `-R/--recursive` to recursively clear all files in the given path.
 - v2.11.1
     - fix bug of forgetting renaming the given root directories. [#21](https://github.com/shenwei356/brename/issues/21)
 - v2.11.0
