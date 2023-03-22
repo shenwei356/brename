@@ -298,32 +298,51 @@ func getOptions(cmd *cobra.Command) *Options {
 	}
 
 	overwriteMode := getFlagNonNegativeInt(cmd, "overwrite-mode")
+	overwriteModes := []string{"reporting error", "overwrite", "do not rename"}
 	if overwriteMode > 2 {
 		log.Errorf("illegal value of flag -o/--overwrite-mode: %d, only 0/1/2 allowed", overwriteMode)
 		os.Exit(1)
 	}
 
-	if !quiet {
-		log.Info("main options:")
-		log.Infof("  ignore case: %v", ignoreCase)
-		log.Infof("  search pattern: %s", p)
-		if len(infilters) > 0 {
-			log.Infof("     skip filters: %s", strings.Join(skipfilters, ", "))
-		}
-		if len(exfilters) > 0 {
-			log.Infof("  exclude filters: %s", strings.Join(exfilters, ", "))
-		}
-		if len(infilters) > 0 {
-			log.Infof("  include filters: %s", strings.Join(infilters, ", "))
+	pathCaseInsensitive := getFlagBool(cmd, "case-insensitive-path")
+	if !pathCaseInsensitive {
+		if runtime.GOOS == "windows" {
+			log.Info()
+			log.Info("The flag -w/--case-insensitive-path is switched on Windows, ")
+			log.Info("where the path is case-insensitive in file systems like NTFS.")
+			log.Info()
+			pathCaseInsensitive = true
+		} else {
+			log.Warning()
+			log.Warningf("If the file system where the search path locates is NTFS (mostly on Windows),")
+			log.Warningf("please use -w/--case-insensitive-path to correctly check file overwrites!")
+			log.Warning()
 		}
 	}
 
-	pathCaseInsensitive := getFlagBool(cmd, "case-insensitive-path")
-	if !pathCaseInsensitive {
-		log.Warning()
-		log.Warningf("If the file system where the search path locates is NTFS (mostly on Windows),")
-		log.Warningf("please use -w/--case-insensitive-path to correctly check file overwrites!")
-		log.Warning()
+	if !quiet {
+		log.Info("main options:")
+		log.Info("  path filters and search pattern:")
+		log.Infof("        ignore case: %v", ignoreCase)
+		log.Infof("     search pattern: %s", p)
+		log.Infof("        replacement: %s", replacement)
+		log.Info()
+
+		if len(infilters) > 0 {
+			log.Infof("       skip filters: %s", strings.Join(skipfilters, ", "))
+		}
+		if len(exfilters) > 0 {
+			log.Infof("    exclude filters: %s", strings.Join(exfilters, ", "))
+		}
+		if len(infilters) > 0 {
+			log.Infof("    include filters: %s", strings.Join(infilters, ", "))
+		}
+
+		log.Info()
+		log.Info("  path overwrite checking:")
+		log.Infof("    case-insensitive path: %v", pathCaseInsensitive)
+		log.Infof("           overwrite mode: %d (%s)", overwriteMode, overwriteModes[overwriteMode])
+		log.Info()
 	}
 
 	return &Options{
@@ -800,7 +819,9 @@ Special replacement symbols:
 		paths := getFileList(args)
 
 		if !opt.Quiet {
-			log.Infof("  search paths: %s", strings.Join(paths, ", "))
+			log.Info("------------------------------------------------------")
+			log.Info()
+			log.Infof("search paths: %s", strings.Join(paths, ", "))
 			log.Info()
 		}
 
