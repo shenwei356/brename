@@ -321,7 +321,7 @@ func getOptions(cmd *cobra.Command) *Options {
 	pathCaseInsensitive := getFlagBool(cmd, "case-insensitive-path")
 	if !pathCaseInsensitive {
 		log.Warning()
-		log.Warningf("If the file system where the search path locates is NTFS (mostly in Windows),")
+		log.Warningf("If the file system where the search path locates is NTFS (mostly on Windows),")
 		log.Warningf("please use -w/--case-insensitive-path to correctly check file overwrites!")
 		log.Warning()
 	}
@@ -418,7 +418,7 @@ func init() {
 	RootCmd.Flags().IntP("nr-width", "", 1, `minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3`)
 
 	RootCmd.Flags().IntP("overwrite-mode", "o", 0, "overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)")
-	RootCmd.Flags().BoolP("case-insensitive-path", "w", false, "the file system (e.g., NTFS) is case-insensitive. Please use this flag in Windows for safety")
+	RootCmd.Flags().BoolP("case-insensitive-path", "w", false, "the file system (e.g., NTFS) is case-insensitive. Please use this flag on Windows for safety")
 
 	RootCmd.Flags().BoolP("undo", "u", false, "undo the LAST successful operation")
 	RootCmd.Flags().BoolP("force-undo", "U", false, "continue undo even when some operations failed")

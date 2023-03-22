@@ -42,7 +42,7 @@
     - Windows
 
         ![windows](screenshot/windows.png)
-        <p style="color:Tomato;">Warning: If the file system where the search path locates is NTFS (mostly in Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!</p>
+        <p style="color:Tomato;">Warning: If the file system where the search path locates is NTFS (mostly on Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!</p>
 
 ## Installation
 
@@ -84,7 +84,7 @@ And then:
 
 1. **For windows**, just copy `brename.exe` to `C:\WINDOWS\system32`.
 
-    <p style="color:Tomato;">Warning: If the file system where the search path locates is NTFS (mostly in Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!</p>
+    <p style="color:Tomato;">Warning: If the file system where the search path locates is NTFS (mostly on Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!</p>
 
 #### Method 2: For Go developer
 
@@ -195,7 +195,7 @@ Examples:
 
 Flags:
   -w, --case-insensitive-path     the file system (e.g., NTFS) is case-insensitive. Please use this flag
-                                  in Windows for safety
+                                  on Windows for safety
       --clear                     remove all .brename_detail.txt" file, you may need to add
                                   -R/--recursive to recursively clear all files in the given path
   -x, --disable-undo              do not create .brename_detail.txt file for undo
