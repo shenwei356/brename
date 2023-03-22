@@ -42,6 +42,7 @@
     - Windows
 
         ![windows](screenshot/windows.png)
+        <p style="color:Tomato;">Warning: If the file system where the search path locates is NTFS (mostly in Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!</p>
 
 ## Installation
 
@@ -82,6 +83,8 @@ And then:
             mkdir -p $HOME/bin/; cp brename $HOME/bin/
 
 1. **For windows**, just copy `brename.exe` to `C:\WINDOWS\system32`.
+
+    <p style="color:Tomato;">Warning: If the file system where the search path locates is NTFS (mostly in Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!</p>
 
 #### Method 2: For Go developer
 
@@ -124,12 +127,15 @@ And then:
 
 brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.12.0
+Version: 2.13.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
 Homepage: https://github.com/shenwei356/brename
 
+Warnings:
+  1. The path in file systems like NTFS is case-insensitive, so you should switch on the flag
+     -w/--case-insensitive-path to correctly check file overwrites.
 
 Three path filters:
 
@@ -188,6 +194,8 @@ Examples:
   More examples: https://github.com/shenwei356/brename
 
 Flags:
+  -w, --case-insensitive-path     the file system (e.g., NTFS) is case-insensitive. Please use this flag
+                                  in Windows for safety
       --clear                     remove all .brename_detail.txt" file, you may need to add
                                   -R/--recursive to recursively clear all files in the given path
   -x, --disable-undo              do not create .brename_detail.txt file for undo

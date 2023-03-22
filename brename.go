@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.12.0"
+var version = "2.13.0"
 var app = "brename"
 var LastOpDetailFile = ".brename_detail.txt"
 
@@ -90,6 +90,8 @@ type Options struct {
 	KeyMissRepl   string
 
 	OverwriteMode int
+
+	PathCaseInsensitive bool
 
 	Undo             bool
 	ForceUndo        bool
@@ -316,6 +318,14 @@ func getOptions(cmd *cobra.Command) *Options {
 		}
 	}
 
+	pathCaseInsensitive := getFlagBool(cmd, "case-insensitive-path")
+	if !pathCaseInsensitive {
+		log.Warning()
+		log.Warningf("If the file system where the search path locates is NTFS (mostly in Windows),")
+		log.Warningf("please use -w/--case-insensitive-path to correctly check file overwrites!")
+		log.Warning()
+	}
+
 	return &Options{
 		Quiet:   quiet,
 		Verbose: verbose,
@@ -356,6 +366,8 @@ func getOptions(cmd *cobra.Command) *Options {
 		KeyMissRepl: keyMissRepl,
 
 		OverwriteMode: overwriteMode,
+
+		PathCaseInsensitive: pathCaseInsensitive,
 
 		Undo:             false,
 		LastOpDetailFile: LastOpDetailFile,
@@ -406,6 +418,7 @@ func init() {
 	RootCmd.Flags().IntP("nr-width", "", 1, `minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3`)
 
 	RootCmd.Flags().IntP("overwrite-mode", "o", 0, "overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)")
+	RootCmd.Flags().BoolP("case-insensitive-path", "w", false, "the file system (e.g., NTFS) is case-insensitive. Please use this flag in Windows for safety")
 
 	RootCmd.Flags().BoolP("undo", "u", false, "undo the LAST successful operation")
 	RootCmd.Flags().BoolP("force-undo", "U", false, "continue undo even when some operations failed")
@@ -467,7 +480,7 @@ Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
 Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
 `)
 
-	pathTree = make(map[string]struct{}, 1000)
+	pathTree = make(map[string]struct{}, 1024)
 }
 
 func main() {
@@ -577,6 +590,9 @@ Author: Wei Shen <shenwei356@gmail.com>
 
 Homepage: https://github.com/shenwei356/brename
 
+Warnings:
+  1. The path in file systems like NTFS is case-insensitive, so you should switch on the flag
+     -w/--case-insensitive-path to correctly check file overwrites.
 
 Three path filters:
 
@@ -961,10 +977,14 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		return true, operation{path, target, codeExisted}
 	}
 
-	if _, ok := pathTree[target]; ok {
+	target2 := target
+	if opt.PathCaseInsensitive {
+		target2 = strings.ToLower(target)
+	}
+	if _, ok := pathTree[target2]; ok {
 		return true, operation{path, target, codeOverwriteNewPath}
 	}
-	pathTree[target] = struct{}{}
+	pathTree[target2] = struct{}{}
 
 	return true, operation{path, target, codeOK}
 }
