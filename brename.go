@@ -310,23 +310,37 @@ func getOptions(cmd *cobra.Command) *Options {
 	}
 
 	pathCaseInsensitive := getFlagBool(cmd, "case-insensitive-path")
+	pathCaseSensitive := getFlagBool(cmd, "case-sensitive-path")
 	if !pathCaseInsensitive {
 		if runtime.GOOS == "windows" {
-			if !quiet {
-				log.Info()
-				log.Info("The flag -w/--case-insensitive-path is switched on Windows, ")
-				log.Info("where the path is case-insensitive in file systems like NTFS.")
-				log.Info()
+			if !pathCaseSensitive {
+				if !quiet {
+					log.Warning()
+					log.Warning("The flag -w/--case-insensitive-path is switched on Windows by default, ")
+					log.Warning("where the path is case-insensitive in file systems like NTFS.")
+					log.Warning("If you are using a file system in which paths are case-insensitive,")
+					log.Warning("please use -W/--case-sensitive-path.")
+					log.Warning()
+				}
+				pathCaseInsensitive = true
+			} else {
+				if !quiet {
+					log.Info()
+					log.Info("You've switched on the flag -W/--case-sensitive-path, which means")
+					log.Info("you believe that the paths are case-insensitive.")
+					log.Info()
+				}
 			}
-			pathCaseInsensitive = true
 		} else {
-			if !quiet {
+			if !pathCaseSensitive && !quiet {
 				log.Warning()
-				log.Warningf("If the file system where the search path locates is NTFS (mostly on Windows),")
-				log.Warningf("please use -w/--case-insensitive-path to correctly check file overwrites!")
+				log.Warning("If the file system where the search path locates is NTFS (most on Windows),")
+				log.Warning("please use -w/--case-insensitive-path to correctly check file overwrites!")
 				log.Warning()
 			}
 		}
+	} else if pathCaseSensitive {
+		checkError(fmt.Errorf("the flag -w/--case-insensitive-path and -W/--case-sensitive-path are incompatible"))
 	}
 
 	if !quiet {
@@ -446,7 +460,9 @@ func init() {
 	RootCmd.Flags().IntP("nr-width", "", 1, `minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3`)
 
 	RootCmd.Flags().IntP("overwrite-mode", "o", 0, "overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)")
-	RootCmd.Flags().BoolP("case-insensitive-path", "w", false, "the file system (e.g., NTFS) is case-insensitive. Please use this flag on Windows for safety")
+
+	RootCmd.Flags().BoolP("case-insensitive-path", "w", false, "the file system (e.g., NTFS) is case-insensitive. It's automatically swiched on on Windows")
+	RootCmd.Flags().BoolP("case-sensitive-path", "W", false, "believing that the file system is case-sensitive. Please use this to disable the flag -w/--case-insensitive-path, which is switched on by default on Windows")
 
 	RootCmd.Flags().BoolP("undo", "u", false, "undo the LAST successful operation")
 	RootCmd.Flags().BoolP("force-undo", "U", false, "continue undo even when some operations failed")
@@ -621,6 +637,8 @@ Homepage: https://github.com/shenwei356/brename
 Warnings:
   1. The path in file systems like NTFS is case-insensitive, so you should switch on the flag
      -w/--case-insensitive-path to correctly check file overwrites.
+  2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
+     -W/--case-sensitive-path to disable it if the file system is indeed case sensitive.
 
 Three path filters:
 
@@ -1003,8 +1021,10 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		return true, operation{path, target, codeUnchanged}
 	}
 
-	if _, err := os.Stat(target); err == nil {
-		return true, operation{path, target, codeExisted}
+	if !opt.PathCaseInsensitive {
+		if _, err := os.Stat(target); err == nil {
+			return true, operation{path, target, codeExisted}
+		}
 	}
 
 	target2 := target
@@ -1013,6 +1033,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	}
 	if _, ok := pathTree[target2]; ok {
 		return true, operation{path, target, codeOverwriteNewPath}
+	} else {
 	}
 	pathTree[target2] = struct{}{}
 

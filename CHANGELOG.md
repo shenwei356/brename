@@ -1,5 +1,6 @@
 - V2.13.0
-    - new flag `-w/--case-insensitive-path`, for correctly checking file overwrites in file systems like NTFS (mostly on Windows). It's automatically switched on Windows. [#28](https://github.com/shenwei356/brename/issues/28).
+    - new flag `-w/--case-insensitive-path`, for correctly checking file overwrites in file systems like NTFS (most on Windows). It's automatically switched on Windows. [#28](https://github.com/shenwei356/brename/issues/28).
+    - new flag `-W/--case-sensitive-path`, for disabling `-w/--case-insensitive-path` on Windows where the `-w` is switched on by default.
 - v2.12.0
     - new flag `-S/--skip-filters`, its default value `^\.` is for skipping paths starting with `.`.
     - new flag `-x, --disable-undo`: do not create .brename_detail.txt file for undo. [#8](https://github.com/shenwei356/brename/issues/8)
