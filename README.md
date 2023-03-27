@@ -42,7 +42,8 @@
     - Windows
 
         ![windows](screenshot/windows.png)
-        <p style="color:Tomato;">Warning: If the file system where the search path locates is NTFS (mostly on Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!</p>
+
+        **Warning**: If the file system where the search path locates is NTFS (mostly on Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!
 
 ## Installation
 
@@ -84,7 +85,7 @@ And then:
 
 1. **For windows**, just copy `brename.exe` to `C:\WINDOWS\system32`.
 
-    <p style="color:Tomato;">Warning: If the file system where the search path locates is NTFS (mostly on Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!</p>
+    **Warning**: If the file system where the search path locates is NTFS (mostly on Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!
 
 #### Method 2: For Go developer
 

@@ -105,7 +105,12 @@ var reNR = regexp.MustCompile(`\{(NR|nr)\}`)
 var reKV = regexp.MustCompile(`\{(KV|kv)\}`)
 
 func getOptions(cmd *cobra.Command) *Options {
+	dryrun := getFlagBool(cmd, "dry-run")
 	quiet := getFlagBool(cmd, "quiet")
+	if dryrun && quiet {
+		quiet = false
+	}
+
 	undo := getFlagBool(cmd, "undo")
 	forceUndo := getFlagBool(cmd, "force-undo")
 	if undo || forceUndo {
@@ -307,16 +312,20 @@ func getOptions(cmd *cobra.Command) *Options {
 	pathCaseInsensitive := getFlagBool(cmd, "case-insensitive-path")
 	if !pathCaseInsensitive {
 		if runtime.GOOS == "windows" {
-			log.Info()
-			log.Info("The flag -w/--case-insensitive-path is switched on Windows, ")
-			log.Info("where the path is case-insensitive in file systems like NTFS.")
-			log.Info()
+			if !quiet {
+				log.Info()
+				log.Info("The flag -w/--case-insensitive-path is switched on Windows, ")
+				log.Info("where the path is case-insensitive in file systems like NTFS.")
+				log.Info()
+			}
 			pathCaseInsensitive = true
 		} else {
-			log.Warning()
-			log.Warningf("If the file system where the search path locates is NTFS (mostly on Windows),")
-			log.Warningf("please use -w/--case-insensitive-path to correctly check file overwrites!")
-			log.Warning()
+			if !quiet {
+				log.Warning()
+				log.Warningf("If the file system where the search path locates is NTFS (mostly on Windows),")
+				log.Warningf("please use -w/--case-insensitive-path to correctly check file overwrites!")
+				log.Warning()
+			}
 		}
 	}
 
@@ -349,7 +358,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		Quiet:   quiet,
 		Verbose: verbose,
 		Version: version,
-		DryRun:  getFlagBool(cmd, "dry-run"),
+		DryRun:  dryrun,
 
 		Pattern:      pattern,
 		PatternRe:    re,
