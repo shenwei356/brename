@@ -1021,7 +1021,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		return true, operation{path, target, codeUnchanged}
 	}
 
-	if !opt.PathCaseInsensitive {
+	if !opt.PathCaseInsensitive && runtime.GOOS != "windows" {
 		if _, err := os.Stat(target); err == nil {
 			return true, operation{path, target, codeExisted}
 		}
