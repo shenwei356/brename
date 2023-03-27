@@ -638,7 +638,7 @@ Warnings:
   1. The path in file systems like NTFS is case-insensitive, so you should switch on the flag
      -w/--case-insensitive-path to correctly check file overwrites.
   2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
-     -W/--case-sensitive-path to disable it if the file system is indeed case sensitive.
+     -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
 
 Three path filters:
 
@@ -1021,7 +1021,14 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		return true, operation{path, target, codeUnchanged}
 	}
 
-	if !opt.PathCaseInsensitive && runtime.GOOS != "windows" {
+	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(target); err == nil {
+			if strings.ToLower(target) == strings.ToLower(path) { //  rename
+			} else { // overwrite existed file
+				return true, operation{path, target, codeExisted}
+			}
+		}
+	} else {
 		if _, err := os.Stat(target); err == nil {
 			return true, operation{path, target, codeExisted}
 		}
