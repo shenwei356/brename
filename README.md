@@ -26,6 +26,10 @@
 ## Features
 
 - **Cross-platform**. Supporting Windows, Mac OS X and Linux.
+    - Windows file systems, including NTFS and FAT, are case-insensitive.
+    Some operations are allowed on Linux, while they could be dangerous on Windows.
+    [For example](https://github.com/shenwei356/brename/issues/28), renaming `test.tar.gz` to `test.tar` will overwrite `TEST.tar`. 
+    `brename` (v2.13.0 and later versions) can handle these cases appropriately.
 - **Safe**. By ***checking potential conflicts and errors***.
 - **Supporting Undo** the LAST successful operation.
 - **Overwrite can be detected and users can choose whether overwrite or leave it**.
@@ -43,7 +47,6 @@
 
         ![windows](screenshot/windows.png)
 
-        **Warning**: If the file system where the search path locates is NTFS (mostly on Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!
 
 ## Installation
 
@@ -84,8 +87,6 @@ And then:
             mkdir -p $HOME/bin/; cp brename $HOME/bin/
 
 1. **For windows**, just copy `brename.exe` to `C:\WINDOWS\system32`.
-
-    **Warning**: If the file system where the search path locates is NTFS (mostly on Windows), please use `-w/--case-insensitive-path` to correctly check file overwrites!
 
 #### Method 2: For Go developer
 
