@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var version = "2.13.0"
+var VERSION = "2.13.0"
 var app = "brename"
 var LastOpDetailFile = ".brename_detail.txt"
 
@@ -309,6 +309,11 @@ func getOptions(cmd *cobra.Command) *Options {
 		os.Exit(1)
 	}
 
+	if !quiet {
+		log.Infof("brename v%s", VERSION)
+		log.Info()
+	}
+
 	pathCaseInsensitive := getFlagBool(cmd, "case-insensitive-path")
 	pathCaseSensitive := getFlagBool(cmd, "case-sensitive-path")
 	if !pathCaseInsensitive {
@@ -317,7 +322,7 @@ func getOptions(cmd *cobra.Command) *Options {
 				if !quiet {
 					log.Warning()
 					log.Warning("The flag -w/--case-insensitive-path is switched on Windows by default, ")
-					log.Warning("where the path is case-insensitive in file systems like NTFS.")
+					log.Warning("where the path is case-insensitive in file systems like FAT32 and NTFS.")
 					log.Warning("If you are using a file system in which paths are case-insensitive,")
 					log.Warning("please use -W/--case-sensitive-path.")
 					log.Warning()
@@ -334,7 +339,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		} else {
 			if !pathCaseSensitive && !quiet {
 				log.Warning()
-				log.Warning("If the file system where the search path locates is NTFS (most on Windows),")
+				log.Warning("If the file system where the search path locates is FAT32 or NTFS (most on Windows),")
 				log.Warning("please use -w/--case-insensitive-path to correctly check file overwrites!")
 				log.Warning()
 			}
@@ -343,28 +348,49 @@ func getOptions(cmd *cobra.Command) *Options {
 		checkError(fmt.Errorf("the flag -w/--case-insensitive-path and -W/--case-sensitive-path are incompatible"))
 	}
 
+	recursive := getFlagBool(cmd, "recursive")
+	includingDir := getFlagBool(cmd, "including-dir")
+	onlyDir := getFlagBool(cmd, "only-dir")
+	maxDepth := getFlagNonNegativeInt(cmd, "max-depth")
+	onlyList := getFlagBool(cmd, "list")
+
 	if !quiet {
-		log.Info("main options:")
-		log.Info("  path filters and search pattern:")
-		log.Infof("        ignore case: %v", ignoreCase)
-		log.Infof("     search pattern: %s", p)
-		log.Infof("        replacement: %s", replacement)
+		log.Info("---------------- main options ------------------------")
+		log.Info()
+
+		log.Info("search mode:")
+		log.Infof(" recursively rename: %v", recursive)
+		log.Infof("      maximum depth: %d (0 for no limit)", maxDepth)
+		log.Infof("  include directory: %v", includingDir)
+		log.Infof("     only directory: %v", onlyDir)
+		log.Info()
+
+		log.Info("path filters and search pattern:")
+		log.Infof("   search pattern: %s", p)
+		log.Infof("      replacement: %s", replacement)
+		log.Infof("      ignore case: %v", ignoreCase)
 		log.Info()
 
 		if len(infilters) > 0 {
-			log.Infof("       skip filters: %s", strings.Join(skipfilters, ", "))
+			log.Infof("     skip filters: %s", strings.Join(skipfilters, ", "))
 		}
 		if len(exfilters) > 0 {
-			log.Infof("    exclude filters: %s", strings.Join(exfilters, ", "))
+			log.Infof("  exclude filters: %s", strings.Join(exfilters, ", "))
 		}
 		if len(infilters) > 0 {
-			log.Infof("    include filters: %s", strings.Join(infilters, ", "))
+			log.Infof("  include filters: %s", strings.Join(infilters, ", "))
 		}
-
 		log.Info()
-		log.Info("  path overwrite checking:")
-		log.Infof("    case-insensitive path: %v", pathCaseInsensitive)
-		log.Infof("           overwrite mode: %d (%s)", overwriteMode, overwriteModes[overwriteMode])
+
+		log.Info("path overwrite checking:")
+		log.Infof("  case-insensitive path: %v", pathCaseInsensitive)
+		log.Infof("         overwrite mode: %d (%s)", overwriteMode, overwriteModes[overwriteMode])
+		log.Info()
+
+		log.Info("miscellaneous:")
+		log.Infof("     disable undo: %v", disableUndo)
+		log.Infof("  only list paths: %v", onlyList)
+		log.Infof("          dry run: %v", dryrun)
 		log.Info()
 	}
 
@@ -377,10 +403,10 @@ func getOptions(cmd *cobra.Command) *Options {
 		Pattern:      pattern,
 		PatternRe:    re,
 		Replacement:  replacement,
-		Recursive:    getFlagBool(cmd, "recursive"),
-		IncludingDir: getFlagBool(cmd, "including-dir"),
-		OnlyDir:      getFlagBool(cmd, "only-dir"),
-		MaxDepth:     getFlagNonNegativeInt(cmd, "max-depth"),
+		Recursive:    recursive,
+		IncludingDir: includingDir,
+		OnlyDir:      onlyDir,
+		MaxDepth:     maxDepth,
 		IgnoreCase:   ignoreCase,
 		IgnoreExt:    getFlagBool(cmd, "ignore-ext"),
 
@@ -391,7 +417,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		ExcludeFilters:   infilters,
 		ExcludeFilterRes: exfilterRes,
 
-		ListPath:    getFlagBool(cmd, "list"),
+		ListPath:    onlyList,
 		ListPathSep: getFlagString(cmd, "list-sep"),
 		ListAbsPath: getFlagBool(cmd, "list-abs"),
 		NatureSort:  getFlagBool(cmd, "nature-sort"),
@@ -461,7 +487,7 @@ func init() {
 
 	RootCmd.Flags().IntP("overwrite-mode", "o", 0, "overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)")
 
-	RootCmd.Flags().BoolP("case-insensitive-path", "w", false, "the file system (e.g., NTFS) is case-insensitive. It's automatically swiched on on Windows")
+	RootCmd.Flags().BoolP("case-insensitive-path", "w", false, "the file system (e.g., FAT32 or NTFS) is case-insensitive. It's automatically swiched on on Windows")
 	RootCmd.Flags().BoolP("case-sensitive-path", "W", false, "believing that the file system is case-sensitive. Please use this to disable the flag -w/--case-insensitive-path, which is switched on by default on Windows")
 
 	RootCmd.Flags().BoolP("undo", "u", false, "undo the LAST successful operation")
@@ -600,7 +626,7 @@ func getFlagNonNegativeInt(cmd *cobra.Command, flag string) int {
 }
 
 func checkVersion() {
-	fmt.Printf("%s v%s\n", app, version)
+	fmt.Printf("%s v%s\n", app, VERSION)
 	fmt.Println("\nChecking new version...")
 
 	resp, err := http.Get(fmt.Sprintf("https://github.com/shenwei356/%s/releases/latest", app))
@@ -614,7 +640,7 @@ func checkVersion() {
 	} else {
 		v = items[len(items)-1]
 	}
-	if v == "v"+version {
+	if v == "v"+VERSION {
 		fmt.Printf("You are using the latest version of %s\n", app)
 	} else {
 		fmt.Printf("New version available: %s %s at %s\n", app, v, resp.Request.URL.String())
@@ -635,7 +661,7 @@ Author: Wei Shen <shenwei356@gmail.com>
 Homepage: https://github.com/shenwei356/brename
 
 Warnings:
-  1. The path in file systems like NTFS is case-insensitive, so you should switch on the flag
+  1. The path in file systems like FAT32 or NTFS is case-insensitive, so you should switch on the flag
      -w/--case-insensitive-path to correctly check file overwrites.
   2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
@@ -663,7 +689,7 @@ Special replacement symbols:
           n can be specified by flag -I/--key-capt-idx (default: 1)
 
 
-`, version),
+`, VERSION),
 	Run: func(cmd *cobra.Command, args []string) {
 		// var err error
 		opt := getOptions(cmd)

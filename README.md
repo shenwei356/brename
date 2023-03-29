@@ -136,8 +136,10 @@ Author: Wei Shen <shenwei356@gmail.com>
 Homepage: https://github.com/shenwei356/brename
 
 Warnings:
-  1. The path in file systems like NTFS is case-insensitive, so you should switch on the flag
+  1. The path in file systems like FAT32 or NTFS is case-insensitive, so you should switch on the flag
      -w/--case-insensitive-path to correctly check file overwrites.
+  2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
+     -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
 
 Three path filters:
 
@@ -196,8 +198,11 @@ Examples:
   More examples: https://github.com/shenwei356/brename
 
 Flags:
-  -w, --case-insensitive-path     the file system (e.g., NTFS) is case-insensitive. Please use this flag
-                                  on Windows for safety
+  -w, --case-insensitive-path     the file system (e.g., FAT32 or NTFS) is case-insensitive. It's
+                                  automatically swiched on on Windows
+  -W, --case-sensitive-path       believing that the file system is case-sensitive. Please use this to
+                                  disable the flag -w/--case-insensitive-path, which is switched on by
+                                  default on Windows
       --clear                     remove all .brename_detail.txt" file, you may need to add
                                   -R/--recursive to recursively clear all files in the given path
   -x, --disable-undo              do not create .brename_detail.txt file for undo
