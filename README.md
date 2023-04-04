@@ -25,18 +25,19 @@
 
 ## Features
 
-- **Cross-platform**. Supporting Windows, Mac OS X and Linux.
+- **Cross-platform**. Supporting Windows, Mac OS X and Linux, 
     - Windows file systems, including NTFS and FAT, are case-insensitive.
     Some operations are allowed on Linux, while they could be dangerous on Windows.
     [For example](https://github.com/shenwei356/brename/issues/28), renaming `test.tar.gz` to `test.tar` will overwrite `TEST.tar`. 
-    `brename` (v2.13.0 and later versions) can handle these cases appropriately.
+    `brename` (v2.13.0 and later versions) can handle these cases appropriately (`-w` and `-W`).
 - **Safe**. By ***checking potential conflicts and errors***.
 - **Supporting Undo** the LAST successful operation.
 - **Overwrite can be detected and users can choose whether overwrite or leave it**.
 - **File filtering**. Supporting including and excluding files via regular expression.
     No need to run commands like `find ./ -name "*.html" -exec CMD`.
 - **Renaming submatch with corresponding value via key-value file**.
-- **Renaming via ascending integer**.
+- **Renaming via ascending integer**. 
+- **Automatically making directoy**: `a-b-c.txt` -> `a/b/c.txt`
 - **Recursively renaming both files and directories**.
 - **Supporting dry run**.
 - **Colorful output**. Screenshots:
@@ -140,6 +141,7 @@ Warnings:
      -w/--case-insensitive-path to correctly check file overwrites.
   2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
+  3. New paths ending with a period of space, being error-prone, are not allowed.
 
 Three path filters:
 
@@ -602,6 +604,27 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
             [INFO] 1 path(s) to be renamed
 
 ## Real-world examples
+
+1. Formating genome assembly file from NCBI.
+    
+        $ ls 
+        GCF_029211165.1_ASM2921116v1_genomic.fa
+
+        # only keeping accession
+        
+        $ brename -R -p '^(\w{3}_\d{9}\.\d+).+' -r '$1.fa' -d
+        [INFO] search paths: ./
+        [INFO] 
+        [INFO] checking: [ ok ] 'GCF_029211165.1_ASM2921116v1_genomic.fa' -> 'GCF_029211165.1.fa'
+        [INFO] 1 path(s) to be renamed
+
+        # keeping accession.version
+        
+        $ brename -R -e -p '\..+' -d
+        [INFO] search paths: ./
+        [INFO] 
+        [INFO] checking: [ ok ] 'GCF_029211165.1_ASM2921116v1_genomic.fa' -> 'GCF_029211165.fa'
+        [INFO] 1 path(s) to be renamed
 
 1. Replace matches with corresponding pairing values
 

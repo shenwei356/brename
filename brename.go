@@ -665,6 +665,7 @@ Warnings:
      -w/--case-insensitive-path to correctly check file overwrites.
   2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
+  3. New paths ending with periods of spaces, being error-prone, are not allowed.
 
 Three path filters:
 
@@ -785,8 +786,8 @@ Special replacement symbols:
 
 		// ------------------------------------------------
 		// rename
-		ops := make([]operation, 0, 1000)
-		opCH := make(chan operation, 100)
+		ops := make([]operation, 0, 1024)
+		opCH := make(chan operation, 1024)
 		done := make(chan int)
 
 		var hasErr bool
@@ -796,6 +797,7 @@ Special replacement symbols:
 
 		go func() {
 			first := true
+			verbose := !opt.Quiet
 			for op := range opCH {
 				if opt.ListPath {
 					if opt.ListAbsPath {
@@ -815,11 +817,11 @@ Special replacement symbols:
 				if int(op.code) >= opt.Verbose {
 					switch op.code {
 					case codeOK:
-						if !opt.Quiet {
+						if verbose {
 							log.Infof("checking: %s\n", op)
 						}
 					case codeUnchanged:
-						if !opt.Quiet {
+						if verbose {
 							log.Warningf("checking: %s\n", op)
 						}
 					case codeExisted, codeOverwriteNewPath:
@@ -827,13 +829,17 @@ Special replacement symbols:
 						case 0: // report error
 							log.Errorf("checking: %s\n", op)
 						case 1: // overwrite
-							if !opt.Quiet {
+							if verbose {
 								log.Warningf("checking: %s (will be overwrited)\n", op)
 							}
 						case 2: // no renaming
-							if !opt.Quiet {
+							if verbose {
 								log.Warningf("checking: %s (will NOT be overwrited)\n", op)
 							}
+						}
+					case codeEndingWithPeriod, codeEndingWithSpace:
+						if verbose {
+							log.Errorf("checking: %s\n", op)
 						}
 					case codeMissingTarget:
 						log.Errorf("checking: %s\n", op)
@@ -961,6 +967,8 @@ const (
 	codeExisted
 	codeOverwriteNewPath
 	codeMissingTarget
+	codeEndingWithSpace
+	codeEndingWithPeriod
 )
 
 var yellow = color.New(color.FgYellow).SprintFunc()
@@ -979,6 +987,10 @@ func (c code) String() string {
 		return red("overwriting newly renamed path")
 	case codeMissingTarget:
 		return red("missing target")
+	case codeEndingWithSpace:
+		return red("new path ending with a space")
+	case codeEndingWithPeriod:
+		return red("new path ending with a period")
 	}
 
 	return "undefined code"
@@ -1037,10 +1049,19 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	}
 
 	filename2 := opt.PatternRe.ReplaceAllString(filename, r) + ext
+
 	target := filepath.Join(dir, filename2)
 
 	if filename2 == "" {
 		return true, operation{path, target, codeMissingTarget}
+	}
+
+	if filename2[len(filename2)-1] == '.' {
+		return true, operation{path, target, codeEndingWithPeriod}
+	}
+
+	if filename2[len(filename2)-1] == ' ' {
+		return true, operation{path, target, codeEndingWithSpace}
 	}
 
 	if filename2 == filename+ext {
@@ -1066,7 +1087,6 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	}
 	if _, ok := pathTree[target2]; ok {
 		return true, operation{path, target, codeOverwriteNewPath}
-	} else {
 	}
 	pathTree[target2] = struct{}{}
 
