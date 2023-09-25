@@ -130,7 +130,7 @@ And then:
 
 brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.13.0
+Version: 2.14.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -217,6 +217,7 @@ Flags:
   -U, --force-undo                continue undo even when some operations failed
   -h, --help                      help for brename
   -i, --ignore-case               ignore case of -p/--pattern, -f/--include-filters and -F/--exclude-filters
+  -E, --ignore-err                ignore director reading errors
   -e, --ignore-ext                ignore file extension. i.e., replacement does not change file extension
   -f, --include-filters strings   include file filter(s) (regular expression, NOT wildcard). multiple
                                   values supported, e.g., -f ".html" -f ".htm", but ATTENTION: each

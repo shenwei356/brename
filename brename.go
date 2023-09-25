@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var VERSION = "2.13.0"
+var VERSION = "2.14.0"
 var app = "brename"
 var LastOpDetailFile = ".brename_detail.txt"
 
@@ -65,6 +65,7 @@ type Options struct {
 	MaxDepth     int
 	IgnoreCase   bool
 	IgnoreExt    bool
+	IgnoreErr    bool
 
 	IncludeFilters   []string
 	SkipFilters      []string
@@ -409,6 +410,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		MaxDepth:     maxDepth,
 		IgnoreCase:   ignoreCase,
 		IgnoreExt:    getFlagBool(cmd, "ignore-ext"),
+		IgnoreErr:    getFlagBool(cmd, "ignore-err"),
 
 		IncludeFilters:   infilters,
 		IncludeFilterRes: infilterRes,
@@ -467,6 +469,7 @@ func init() {
 	RootCmd.Flags().IntP("max-depth", "", 0, "maximum depth for recursive search (0 for no limit)")
 	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case of -p/--pattern, -f/--include-filters and -F/--exclude-filters")
 	RootCmd.Flags().BoolP("ignore-ext", "e", false, "ignore file extension. i.e., replacement does not change file extension")
+	RootCmd.Flags().BoolP("ignore-err", "E", false, "ignore director reading errors")
 
 	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'`)
 	RootCmd.Flags().StringSliceP("skip-filters", "S", []string{`^\.`}, `skip file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -S "^\." for skipping files starting with a dot, but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'`)
@@ -1213,7 +1216,11 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	// it's a directory
 	files, err := os.ReadDir(path)
 	if err != nil {
-		return fmt.Errorf("err on reading dir: %s", path)
+		if !opt.IgnoreErr {
+			return fmt.Errorf("err on reading dir: %s, you can use -E/--ignore-err to skip this", path)
+		} else {
+			log.Warningf("ignore err on reading dir: %s", path)
+		}
 	}
 
 	var filename string

@@ -1,3 +1,5 @@
+- v2.14.0
+    - new flag -E/--ignore-err to skip directory reading errs.
 - v2.13.0
     - new flag `-w/--case-insensitive-path`, for correctly checking file overwrites in file systems like NTFS (most on Windows). It's automatically switched on Windows. [#28](https://github.com/shenwei356/brename/issues/28).
     - new flag `-W/--case-sensitive-path`, for disabling `-w/--case-insensitive-path` on Windows where the `-w` is switched on by default.
