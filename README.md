@@ -169,26 +169,26 @@ Usage:
   brename [flags] 
 
 Examples:
-  1. dry run and showing potential dangerous operations
+  1. dry run and showing potential dangerous operations (-d)
       brename -p "abc" -d
-  2. dry run and only show operations that will cause error
+  2. dry run and only show operations that will cause error (-v)
       brename -p "abc" -d -v 2
-  3. only renaming specific paths via include filters
+  3. only renaming specific paths via include filters (-f)
       brename -p ":" -r "-" -f ".htm$" -f ".html$"
-  4. renaming all .jpeg files to .jpg in all subdirectories
+  4. renaming all .jpeg files to .jpg in all subdirectories (-R)
       brename -p "\.jpeg" -r ".jpg" -R   dir
   5. using capture variables, e.g., $1, $2 ...
       brename -p "(a)" -r "\$1\$1"
       or brename -p "(a)" -r '$1$1' in Linux/Mac OS X
-  6. renaming directory too
+  6. renaming directory too (-D)
       brename -p ":" -r "-" -R -D   pdf-dirs
-  7. using key-value file
+  7. using key-value file (-k)
       brename -p "(.+)" -r "{kv}" -k kv.tsv
-  8. do not touch file extension
+  8. do not touch file extension (-e)
       brename -p ".+" -r "{nr}" -f .mkv -f .mp4 -e
   9. only list paths that match pattern (-l)
       brename -i -f '.docx?$' -p . -R -l
-  10. undo the LAST successful operation
+  10. undo the LAST successful operation (-u)
       brename -u
   11. disable undo if you do not want to create .brename_detail.txt (-x)
       brename -p xxx -r yyy -x
