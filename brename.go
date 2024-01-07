@@ -310,7 +310,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		os.Exit(1)
 	}
 
-	if !quiet {
+	if !quiet && verbose == 0 {
 		log.Infof("brename v%s", VERSION)
 		log.Info()
 	}
@@ -320,7 +320,7 @@ func getOptions(cmd *cobra.Command) *Options {
 	if !pathCaseInsensitive {
 		if runtime.GOOS == "windows" {
 			if !pathCaseSensitive {
-				if !quiet {
+				if !quiet && verbose <= 1 {
 					log.Warning()
 					log.Warning("The flag -w/--case-insensitive-path is switched on Windows by default, ")
 					log.Warning("where the path is case-insensitive in file systems like FAT32 and NTFS.")
@@ -330,7 +330,7 @@ func getOptions(cmd *cobra.Command) *Options {
 				}
 				pathCaseInsensitive = true
 			} else {
-				if !quiet {
+				if !quiet && verbose <= 1 {
 					log.Info()
 					log.Info("You've switched on the flag -W/--case-sensitive-path, which means")
 					log.Info("you believe that the paths are case-insensitive.")
@@ -338,7 +338,7 @@ func getOptions(cmd *cobra.Command) *Options {
 				}
 			}
 		} else {
-			if !pathCaseSensitive && !quiet {
+			if !pathCaseSensitive && !quiet && verbose <= 1 {
 				log.Warning()
 				log.Warning("If the file system where the search path locates is FAT32 or NTFS (most on Windows),")
 				log.Warning("please use -w/--case-insensitive-path to correctly check file overwrites!")
@@ -355,7 +355,7 @@ func getOptions(cmd *cobra.Command) *Options {
 	maxDepth := getFlagNonNegativeInt(cmd, "max-depth")
 	onlyList := getFlagBool(cmd, "list")
 
-	if !quiet {
+	if !quiet && verbose == 0 {
 		log.Info("---------------- main options ------------------------")
 		log.Info()
 
@@ -456,8 +456,8 @@ func init() {
 	logging.SetBackend(backendFormatter)
 	log = logging.MustGetLogger(app)
 
-	RootCmd.Flags().BoolP("quiet", "q", false, "be quiet, do not show information and warning")
-	RootCmd.Flags().IntP("verbose", "v", 0, "verbose level (0 for all, 1 for warning and error, 2 for only error) (default 0)")
+	RootCmd.Flags().BoolP("quiet", "q", false, "be quiet, do not show any information and warning")
+	RootCmd.Flags().IntP("verbose", "v", 2, "verbose level (0 for all, 1 for warning, error and renamed files, 2 for only error and renamed files) (default 2)")
 	RootCmd.Flags().BoolP("version", "V", false, "print version information and check for update")
 	RootCmd.Flags().BoolP("dry-run", "d", false, "print rename operations but do not run")
 
@@ -880,7 +880,7 @@ Special replacement symbols:
 
 		paths := getFileList(args)
 
-		if !opt.Quiet {
+		if !opt.Quiet && opt.Verbose == 0 {
 			log.Info("------------------------------------------------------")
 			log.Info()
 			log.Infof("search paths: %s", strings.Join(paths, ", "))
@@ -905,7 +905,7 @@ Special replacement symbols:
 		if opt.ListPath {
 			return
 		}
-		if !opt.Quiet {
+		if !opt.Quiet && opt.Verbose == 0 {
 			log.Infof("%d path(s) to be renamed", n)
 		}
 		if n == 0 {
