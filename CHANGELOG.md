@@ -1,5 +1,6 @@
 - v2.14.0
-    - **setting default value of `-v/--verbose` as 2, which make the output conciser**. [#31](https://github.com/shenwei356/brename/issues/31)
+    - **setting default value of `-v/--verbose` as 2, which make the output more concise**. [#31](https://github.com/shenwei356/brename/issues/31)
+    - output format changed.
     - new flag `-E/--ignore-err` to skip directory reading errs.
 - v2.13.0
     - new flag `-w/--case-insensitive-path`, for correctly checking file overwrites in file systems like NTFS (most on Windows). It's automatically switched on Windows. [#28](https://github.com/shenwei356/brename/issues/28).

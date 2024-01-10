@@ -30,6 +30,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
@@ -312,6 +313,8 @@ func getOptions(cmd *cobra.Command) *Options {
 
 	if !quiet && verbose == 0 {
 		log.Infof("brename v%s", VERSION)
+		log.Infof("https://github.com/shenwei356/brename")
+
 		log.Info()
 	}
 
@@ -446,7 +449,8 @@ func getOptions(cmd *cobra.Command) *Options {
 }
 
 func init() {
-	logFormat := logging.MustStringFormatter(`%{color}[%{level:.4s}]%{color:reset} %{message}`)
+	// logFormat := logging.MustStringFormatter(`%{color}[%{level:.4s}]%{color:reset} %{message}`)
+	logFormat := logging.MustStringFormatter(`%{message}`)
 	var stderr io.Writer = os.Stderr
 	if runtime.GOOS == "windows" {
 		stderr = colorable.NewColorableStderr()
@@ -695,6 +699,7 @@ Special replacement symbols:
 
 `, VERSION),
 	Run: func(cmd *cobra.Command, args []string) {
+		timeStart := time.Now()
 		// var err error
 		opt := getOptions(cmd)
 
@@ -761,26 +766,29 @@ Special replacement symbols:
 			}
 
 			n := 0
+			if !opt.Quiet {
+				log.Infof(bold("Renaming paths back..."))
+			}
 			for i := len(history) - 1; i >= 0; i-- {
 				op = history[i]
 
 				err = os.Rename(op.target, op.source)
 				if err != nil {
-					log.Errorf(`fail to rename: '%s' -> '%s': %s`, op.source, op.target, err)
+					log.Errorf(`  [%s] %s -> %s: %s`, red("ERROR"), op.source, op.target, err)
 					if !opt.ForceUndo {
 						if !opt.Quiet {
-							log.Infof("%d path(s) renamed", n)
+							log.Infof("%d path(s) renamed in %s", n, time.Since(timeStart))
 						}
 						os.Exit(1)
 					}
 				}
 				n++
 				if !opt.Quiet {
-					log.Infof("rename back: '%s' -> '%s'", op.target, op.source)
+					log.Infof("  [%s] %s -> %s", green("DONE"), op.target, op.source)
 				}
 			}
 			if !opt.Quiet {
-				log.Infof("%d path(s) renamed", n)
+				log.Infof("%d path(s) renamed in %s", n, time.Since(timeStart))
 			}
 
 			checkError(os.Remove(opt.LastOpDetailFile))
@@ -800,7 +808,10 @@ Special replacement symbols:
 
 		go func() {
 			first := true
-			verbose := !opt.Quiet
+			verbose := !opt.Quiet || opt.DryRun
+			if verbose {
+				log.Info(bold("Checking..."))
+			}
 			for op := range opCH {
 				if opt.ListPath {
 					if opt.ListAbsPath {
@@ -817,35 +828,35 @@ Special replacement symbols:
 					}
 					continue
 				}
-				if int(op.code) >= opt.Verbose {
+				if int(op.code) >= opt.Verbose || opt.DryRun {
 					switch op.code {
 					case codeOK:
 						if verbose {
-							log.Infof("checking: %s\n", op)
+							log.Infof("  %s\n", op)
 						}
 					case codeUnchanged:
 						if verbose {
-							log.Warningf("checking: %s\n", op)
+							log.Warningf("  %s\n", op)
 						}
 					case codeExisted, codeOverwriteNewPath:
 						switch opt.OverwriteMode {
 						case 0: // report error
-							log.Errorf("checking: %s\n", op)
+							log.Errorf("  %s\n", op)
 						case 1: // overwrite
 							if verbose {
-								log.Warningf("checking: %s (will be overwrited)\n", op)
+								log.Warningf("  %s (will be overwrited)\n", op)
 							}
 						case 2: // no renaming
 							if verbose {
-								log.Warningf("checking: %s (will NOT be overwrited)\n", op)
+								log.Warningf("  %s (will NOT be overwrited)\n", op)
 							}
 						}
 					case codeEndingWithPeriod, codeEndingWithSpace:
 						if verbose {
-							log.Errorf("checking: %s\n", op)
+							log.Errorf("  %s\n", op)
 						}
 					case codeMissingTarget:
-						log.Errorf("checking: %s\n", op)
+						log.Errorf("  %s\n", op)
 					}
 				}
 
@@ -905,7 +916,7 @@ Special replacement symbols:
 		if opt.ListPath {
 			return
 		}
-		if !opt.Quiet && opt.Verbose == 0 {
+		if opt.DryRun || (!opt.Quiet && opt.Verbose == 0) || n == 0 {
 			log.Infof("%d path(s) to be renamed", n)
 		}
 		if n == 0 {
@@ -931,11 +942,14 @@ Special replacement symbols:
 		var n2 int
 		var targetDir string
 		var targetDirExisted bool
+		if !opt.Quiet {
+			log.Info(bold("Renaming paths..."))
+		}
 		for _, op := range ops {
 			targetDir = filepath.Dir(op.target)
 			targetDirExisted, err = pathutil.DirExists(targetDir)
 			if err != nil {
-				log.Errorf(`fail to rename: '%s' -> '%s'`, op.source, op.target)
+				log.Errorf(`  [%s] %s -> %s`, red("ERROR"), op.source, op.target)
 				os.Exit(1)
 			}
 			if !targetDirExisted {
@@ -944,11 +958,11 @@ Special replacement symbols:
 
 			err = os.Rename(op.source, op.target)
 			if err != nil {
-				log.Errorf(`fail to rename: '%s' -> '%s': %s`, op.source, op.target, err)
+				log.Errorf(`  [%s] %s -> %s: %s`, red("ERROR"), op.source, op.target, err)
 				os.Exit(1)
 			}
 			if !opt.Quiet {
-				log.Infof("renamed: '%s' -> '%s'", op.source, op.target)
+				log.Infof("  [%s] %s -> %s", green("DONE"), op.source, op.target)
 			}
 			if !opt.DisableUndo {
 				bfh.WriteString(fmt.Sprintf("%s%s%s\n", op.source, delimiter, op.target))
@@ -957,7 +971,7 @@ Special replacement symbols:
 		}
 
 		if !opt.Quiet {
-			log.Infof("%d path(s) renamed", n2)
+			log.Infof("%d path(s) renamed in %s", n2, time.Since(timeStart))
 		}
 	},
 }
@@ -977,11 +991,12 @@ const (
 var yellow = color.New(color.FgYellow).SprintFunc()
 var red = color.New(color.FgRed).SprintFunc()
 var green = color.New(color.FgGreen).SprintFunc()
+var bold = color.New(color.Bold).SprintFunc()
 
 func (c code) String() string {
 	switch c {
 	case codeOK:
-		return green("ok")
+		return green("OK")
 	case codeUnchanged:
 		return yellow("unchanged")
 	case codeExisted:
@@ -1006,7 +1021,7 @@ type operation struct {
 }
 
 func (op operation) String() string {
-	return fmt.Sprintf(`[ %s ] '%s' -> '%s'`, op.code, op.source, op.target)
+	return fmt.Sprintf(`[%s] %s -> %s`, op.code, op.source, op.target)
 }
 
 func checkOperation(opt *Options, path string) (bool, operation) {
@@ -1073,7 +1088,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 
 	if runtime.GOOS == "windows" {
 		if _, err := os.Stat(target); err == nil {
-			if strings.ToLower(target) == strings.ToLower(path) { //  rename
+			if strings.EqualFold(target, path) { //  rename
 			} else { // overwrite existed file
 				return true, operation{path, target, codeExisted}
 			}
