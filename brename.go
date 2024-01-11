@@ -144,7 +144,7 @@ func getOptions(cmd *cobra.Command) *Options {
 
 	pattern := getFlagString(cmd, "pattern")
 	if pattern == "" {
-		log.Errorf("flag -p/--pattern needed")
+		log.Errorf(`flag -p/--pattern needed. type "brename -h" for usage and examples.`)
 		os.Exit(1)
 	}
 	p := pattern
@@ -898,7 +898,7 @@ Special replacement symbols:
 		}
 
 		if !opt.Quiet || opt.DryRun {
-			log.Info(bold("Searching paths to rename..."))
+			log.Info(bold("Searching for paths to rename..."))
 			log.Info()
 		}
 		for _, path := range paths {
@@ -909,7 +909,7 @@ Special replacement symbols:
 			}
 		}
 		if !opt.Quiet || opt.DryRun {
-			fmt.Fprintf(os.Stderr, "\n")
+			fmt.Fprintf(os.Stderr, "\r  %-78s\n", green("Done searching."))
 		}
 		close(opCH)
 		<-done
@@ -1231,13 +1231,13 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
 		return nil
 	}
-	if !opt.Quiet || opt.DryRun {
+	if !opt.Quiet && !opt.DryRun {
 		_path := path
 		n := len(_path)
-		if n > 75 {
-			_path = path[:30] + "......" + path[n-30:]
+		if n > 78 {
+			_path = path[:40] + "..." + path[n-35:]
 		}
-		fmt.Fprintf(os.Stderr, "\r  %s", _path)
+		fmt.Fprintf(os.Stderr, "\r  %-78s", _path)
 	}
 
 	_, err := os.ReadFile(path)
@@ -1255,7 +1255,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	// it's a directory
 	files, err := os.ReadDir(path)
 	if err != nil {
-		if !opt.Quiet || opt.DryRun {
+		if !opt.Quiet && !opt.DryRun {
 			fmt.Fprintf(os.Stderr, "\n")
 		}
 		if !opt.IgnoreErr {
