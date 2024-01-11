@@ -908,7 +908,7 @@ Special replacement symbols:
 				checkError(err)
 			}
 		}
-		if !opt.Quiet || opt.DryRun {
+		if !opt.Quiet && !opt.DryRun {
 			fmt.Fprintf(os.Stderr, "\r  %-78s\n", green("Done searching."))
 		}
 		close(opCH)
