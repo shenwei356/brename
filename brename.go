@@ -768,6 +768,7 @@ Special replacement symbols:
 			n := 0
 			if !opt.Quiet {
 				log.Infof(bold("Renaming paths back..."))
+				log.Info()
 			}
 			for i := len(history) - 1; i >= 0; i-- {
 				op = history[i]
@@ -777,7 +778,7 @@ Special replacement symbols:
 					log.Errorf(`  [%s] %s -> %s: %s`, red("ERROR"), op.source, op.target, err)
 					if !opt.ForceUndo {
 						if !opt.Quiet {
-							log.Infof("%d path(s) renamed in %s", n, time.Since(timeStart))
+							log.Infof("%d path(s) renamed back in %.3f seconds", n, time.Since(timeStart).Seconds())
 						}
 						os.Exit(1)
 					}
@@ -788,7 +789,8 @@ Special replacement symbols:
 				}
 			}
 			if !opt.Quiet {
-				log.Infof("%d path(s) renamed in %s", n, time.Since(timeStart))
+				log.Info()
+				log.Infof("%d path(s) renamed back in %.3f seconds", n, time.Since(timeStart).Seconds())
 			}
 
 			checkError(os.Remove(opt.LastOpDetailFile))
@@ -809,9 +811,6 @@ Special replacement symbols:
 		go func() {
 			first := true
 			verbose := !opt.Quiet || opt.DryRun
-			if verbose {
-				log.Info(bold("Checking..."))
-			}
 			for op := range opCH {
 				if opt.ListPath {
 					if opt.ListAbsPath {
@@ -898,6 +897,10 @@ Special replacement symbols:
 			log.Info()
 		}
 
+		if !opt.Quiet || opt.DryRun {
+			log.Info(bold("Searching paths to rename..."))
+			log.Info()
+		}
 		for _, path := range paths {
 			err = walk(opt, opCH, path, 1)
 			if err != nil {
@@ -905,10 +908,14 @@ Special replacement symbols:
 				checkError(err)
 			}
 		}
+		if !opt.Quiet || opt.DryRun {
+			fmt.Fprintf(os.Stderr, "\n")
+		}
 		close(opCH)
 		<-done
 
 		if hasErr {
+			log.Info()
 			log.Errorf("%d potential error(s) detected, please check", nErr)
 			os.Exit(1)
 		}
@@ -917,6 +924,7 @@ Special replacement symbols:
 			return
 		}
 		if opt.DryRun || (!opt.Quiet && opt.Verbose == 0) || n == 0 {
+			log.Info()
 			log.Infof("%d path(s) to be renamed", n)
 		}
 		if n == 0 {
@@ -943,7 +951,9 @@ Special replacement symbols:
 		var targetDir string
 		var targetDirExisted bool
 		if !opt.Quiet {
+			log.Info()
 			log.Info(bold("Renaming paths..."))
+			log.Info()
 		}
 		for _, op := range ops {
 			targetDir = filepath.Dir(op.target)
@@ -971,7 +981,8 @@ Special replacement symbols:
 		}
 
 		if !opt.Quiet {
-			log.Infof("%d path(s) renamed in %s", n2, time.Since(timeStart))
+			log.Info()
+			log.Infof("%d path(s) renamed in %.3f seconds", n2, time.Since(timeStart).Seconds())
 		}
 	},
 }
@@ -1024,6 +1035,7 @@ func (op operation) String() string {
 	return fmt.Sprintf(`[%s] %s -> %s`, op.code, op.source, op.target)
 }
 
+// checkOperation checks an renaming operation
 func checkOperation(opt *Options, path string) (bool, operation) {
 	dir, filename := filepath.Split(path)
 	var ext string
@@ -1111,19 +1123,20 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	return true, operation{path, target, codeOK}
 }
 
+// ignore checks if we should ignore this path
 func ignore(opt *Options, path string) bool {
-	for _, re := range opt.SkipFilterRes {
+	for _, re := range opt.SkipFilterRes { // black list
 		if re.MatchString(path) {
 			return true
 		}
 	}
 
-	for _, re := range opt.ExcludeFilterRes {
+	for _, re := range opt.ExcludeFilterRes { // black list
 		if re.MatchString(path) {
 			return true
 		}
 	}
-	for _, re := range opt.IncludeFilterRes {
+	for _, re := range opt.IncludeFilterRes { // white list
 		if re.MatchString(path) {
 			return false
 		}
@@ -1131,6 +1144,7 @@ func ignore(opt *Options, path string) bool {
 	return true
 }
 
+// clear removes all log files
 func clear(opt *Options, path string, depth int) error {
 	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
 		return nil
@@ -1212,10 +1226,20 @@ func clear(opt *Options, path string, depth int) error {
 	return nil
 }
 
+// walk recursively search file to rename
 func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
 		return nil
 	}
+	if !opt.Quiet || opt.DryRun {
+		_path := path
+		n := len(_path)
+		if n > 75 {
+			_path = path[:30] + "......" + path[n-30:]
+		}
+		fmt.Fprintf(os.Stderr, "\r  %s", _path)
+	}
+
 	_, err := os.ReadFile(path)
 	// it's a file
 	if err == nil {
@@ -1231,10 +1255,13 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	// it's a directory
 	files, err := os.ReadDir(path)
 	if err != nil {
+		if !opt.Quiet || opt.DryRun {
+			fmt.Fprintf(os.Stderr, "\n")
+		}
 		if !opt.IgnoreErr {
-			return fmt.Errorf("err on reading dir: %s, you can use -E/--ignore-err to skip this", path)
+			return fmt.Errorf("  %s when reading dir: %s, you can use -E/--ignore-err to skip this", red("error detected"), path)
 		} else {
-			log.Warningf("ignore err on reading dir: %s", path)
+			log.Warningf("  %s when reading dir: %s", yellow("err ignored"), path)
 		}
 	}
 
@@ -1308,6 +1335,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	return nil
 }
 
+// readKVs reads a tab-delimited file containing key-value pairs
 func readKVs(file string, ignoreCase bool) (map[string]string, error) {
 	type KV [2]string
 	fn := func(line string) (interface{}, bool, error) {
