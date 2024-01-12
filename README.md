@@ -1,4 +1,4 @@
-# brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
+# brename: batch renaming safely
 
 [![Built with GoLang](https://img.shields.io/badge/powered_by-go-6362c2.svg?style=flat)](https://golang.org)
 [![Go Report Card](https://goreportcard.com/badge/github.com/shenwei356/brename)](https://goreportcard.com/report/github.com/shenwei356/brename)
@@ -7,6 +7,8 @@
 [![Github Releases](https://img.shields.io/github/downloads/shenwei356/brename/latest/total.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases)
 
 `brename` is a cross-platform command-line tool for safely batch renaming files/directories via regular expression.
+
+<img src="screenshot/success.png" width="700"/>
 
 ## Table of Contents
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -30,23 +32,37 @@
     Some operations are allowed on Linux, while they could be dangerous on Windows.
     [For example](https://github.com/shenwei356/brename/issues/28), renaming `test.tar.gz` to `test.tar` will overwrite `TEST.tar`. 
     `brename` (v2.13.0 and later versions) can handle these cases appropriately (`-w` and `-W`).
-- **Safe**. By ***checking potential conflicts and errors***.
-- **Supporting Undo** the LAST successful operation.
-- **Overwrite can be detected and users can choose whether overwrite or leave it**.
-- **File filtering**. Supporting including and excluding files via regular expression.
-    No need to run commands like `find ./ -name "*.html" -exec CMD`.
-- **Renaming submatch with corresponding value via key-value file**.
-- **Renaming via ascending integer**. 
-- **Automatically making directoy**: `a-b-c.txt` -> `a/b/c.txt`
-- **Recursively renaming both files and directories**.
-- **Supporting dry run**.
-- **Colorful output**. Screenshots:
-    - Linux
 
-        ![linux](screenshot/linux.png)
-    - Windows
+- **Safe**. ***It helps you check potential conflicts and errors before it's too late***.
 
-        ![windows](screenshot/windows.png)
+    <img src="screenshot/check-error.png" width="700"/>
+
+    Some common conflict and errors that might happen with commands like `mv` or `rename`.
+
+    - `New path existed`: **Existed files might be overwritten, causing data loss**.
+	- `Overwriting newly renamed path`. **Existed files might be overwritten, causing data loss.**
+       This case is hard to check by eyes.
+	- `Missing target`: New file is empty, that's not allowed.
+	- `New path ending with a space`: Not allowed in Windows. It's legal in Linux, but might cause unexpected errors.
+	- `New path ending with a period`: Not allowed in Windows.
+
+- **Supporting dry run**. A good habbit.
+
+    <img src="screenshot/dry-run.png" width="700"/>
+
+- **Supporting Undo** the LAST successful operation, like a time machine.
+
+    <img src="screenshot/undo.png" width="700"/>
+
+- **Overwrite can be detected and users can choose whether overwrite or leave it** (`-o/--overwrite-mode`).
+- **File filtering**.
+    - Supporting including (`-f/--include-filters`) and excluding (`-F/--exclude-filters`) files via regular expression.
+    - No need to run commands like `find ./ -name "*.html" -exec CMD`.
+- **Renaming submatch with corresponding value via key-value file** (`-r "{kv}" -k kv.tsv`).
+- **Renaming via ascending integer** (`-r "{nr}"`). 
+- **Automatically making directoy**: e.g., renaming `a-b-c.txt` to `a/b/c.txt`.
+- **Recursively renaming both files and directories** (`-R/--recursive`, `-D/--including-dir`, `--only-dir`).
+
 
 
 ## Installation
@@ -57,20 +73,20 @@
 
 #### Method 1: Download binaries
 
-[brename v2.13.0](https://github.com/shenwei356/brename/releases/tag/v2.13.0)
-[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.13.0/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.13.0)
+[brename v2.14.0](https://github.com/shenwei356/brename/releases/tag/v2.14.0)
+[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.14.0/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.14.0)
 
 ***Tip: run `brename -V` to check update !!!***
 
 OS     |Arch      |File, 中国镜像                                                                                                                                                                              |Download Count
 :------|:---------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_linux_386.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_386.tar.gz)                            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_linux_386.tar.gz)
-Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_linux_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_amd64.tar.gz)                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_linux_amd64.tar.gz)
-Linux  |arm64     |[**brename_linux_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_linux_arm64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_arm64.tar.gz)                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_linux_arm64.tar.gz)
-OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_darwin_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_amd64.tar.gz)               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_darwin_amd64.tar.gz)
-OS X   |arm64     |[**brename_darwin_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_darwin_arm64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_arm64.tar.gz)               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_darwin_arm64.tar.gz)
-Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_windows_386.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_windows_386.exe.tar.gz)
-Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_windows_amd64.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_amd64.exe.tar.gz)|[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.13.0/brename_windows_amd64.exe.tar.gz)
+Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_386.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_386.tar.gz)                            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_386.tar.gz)
+Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_amd64.tar.gz)                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_amd64.tar.gz)
+Linux  |arm64     |[**brename_linux_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_arm64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_arm64.tar.gz)                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_arm64.tar.gz)
+OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_amd64.tar.gz)               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_amd64.tar.gz)
+OS X   |arm64     |[**brename_darwin_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_arm64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_arm64.tar.gz)               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_arm64.tar.gz)
+Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_386.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_386.exe.tar.gz)
+Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_amd64.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_amd64.exe.tar.gz)|[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_amd64.exe.tar.gz)
 
 
 Just [download](https://github.com/shenwei356/brename/releases) compressed
@@ -128,7 +144,7 @@ And then:
 
 ```
 
-brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
+brename: a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
 Version: 2.14.0
 
@@ -141,15 +157,15 @@ Warnings:
      -w/--case-insensitive-path to correctly check file overwrites.
   2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
-  3. New paths ending with a period of space, being error-prone, are not allowed.
+  3. New paths ending with periods of spaces, being error-prone, are not allowed.
 
 Three path filters:
 
   1. -S/--skip-filters       black list     default value: ^\. (skipping paths starting with ".")
   2. -F/--exclude-filters    black list     no default value
   3. -f/--include-filters    white list     default value: .   (anything)
-  
-  Notes: 
+
+  Notes:
   1. Paths starting with "." are ignored by default, disable this with -S "".
   2. These options support multiple values, e.g., -f ".html" -f ".htm".
      But ATTENTION: each comma in filters is treated as a separator of multiple filters.
@@ -166,7 +182,7 @@ Special replacement symbols:
           n can be specified by flag -I/--key-capt-idx (default: 1)
 
 Usage:
-  brename [flags] 
+  brename [flags]
 
 Examples:
   1. dry run and showing potential dangerous operations (-d)
@@ -241,7 +257,7 @@ Flags:
   -o, --overwrite-mode int        overwrite mode (0 for reporting error, 1 for overwrite, 2 for not
                                   renaming) (default 0)
   -p, --pattern string            search pattern (regular expression)
-  -q, --quiet                     be quiet, do not show information and warning
+  -q, --quiet                     be quiet, do not show any information and warning
   -R, --recursive                 rename recursively
   -r, --replacement string        replacement. capture variables supported.  e.g. $1 represents the
                                   first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double
@@ -254,8 +270,8 @@ Flags:
                                   patterns containing comma, e.g., -p '"A{2,}"' (default [^\.])
   -n, --start-num int             starting number when using {nr} in replacement (default 1)
   -u, --undo                      undo the LAST successful operation
-  -v, --verbose int               verbose level (0 for all, 1 for warning and error, 2 for only error)
-                                  (default 0)
+  -v, --verbose int               verbose level (0 for all, 1 for warning, error and renamed files, 2
+                                  for only error and renamed files) (default 2)
   -V, --version                   print version information and check for update
 
 ```
@@ -283,30 +299,25 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
  A dry run is firstly performed for safety checking (`-d/--dry-run`).
 
         $ brename -p "\.jpeg" -r ".jpg" -R -d
-        [INFO] main options:
-        [INFO]   ignore case: false
-        [INFO]   search pattern: \.jpeg
-        [INFO]   include filters: .
-        [INFO]   search paths: ./
-        [INFO] 
-        [INFO] checking: [ ok ] 'a.jpeg' -> 'a.jpg'
-        [INFO] checking: [ ok ] 'b.jpeg' -> 'b.jpg'
-        [INFO] 2 path(s) to be renamed
+        Searching for paths to rename...
+
+          [OK] example/a.jpeg -> example/a.jpg
+          [OK] example/b.jpeg -> example/b.jpg
+
+        2 path(s) to be renamed
 
 
         $ brename -p "\.jpeg" -r ".jpg" -R
-        [INFO] main options:
-        [INFO]   ignore case: false
-        [INFO]   search pattern: \.jpeg
-        [INFO]   include filters: .
-        [INFO]   search paths: ./
-        [INFO] 
-        [INFO] checking: [ ok ] 'a.jpeg' -> 'a.jpg'
-        [INFO] checking: [ ok ] 'b.jpeg' -> 'b.jpg'
-        [INFO] 2 path(s) to be renamed
-        [INFO] renamed: 'a.jpeg' -> 'a.jpg'
-        [INFO] renamed: 'b.jpeg' -> 'b.jpg'
-        [INFO] 2 path(s) renamed
+        Searching for paths to rename...
+
+          Done searching.
+
+        Renaming paths...
+
+          [DONE] example/a.jpeg -> example/a.jpg
+          [DONE] example/b.jpeg -> example/b.jpg
+
+        2 path(s) renamed in 0.001 seconds
 
         $ tree
         .
@@ -322,11 +333,14 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 1. **Undo** the LAST successful operation, yes it's COOL! (`-u/--undo`, `-U/--force-undo`)
     
         $ brename -u
-        [INFO] rename back: 'b.jpg' -> 'b.jpeg'
-        [INFO] rename back: 'a.jpg' -> 'a.jpeg'
-        [INFO] 2 path(s) renamed
+        Renaming paths back...
+
+          [DONE] example/b.jpg -> example/b.jpeg
+          [DONE] example/a.jpg -> example/a.jpeg
+
+        2 path(s) renamed back in 0.000 seconds
         
-   Disable undo if you do not want to create .brename_detail.txt (`-x`)
+   Disable undo if you do not want to create `.brename_detail.txt` (`-x`)
    
         $ brename -p xxx -r yyy -x
         
@@ -334,28 +348,40 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
   
         $ brename --clear -R
     
-1. Dry run and only showing operations that will cause error (`-v/--verbose`)
+1. Dry run, only showing operations that will cause error (just remove `-d`).
 
         # default value of -v is 0
         $ brename -p a -r b -R -D -d
-        [INFO] checking: [ ok ] 'a.html' -> 'b.html'
-        [ERRO] checking: [ new path existed ] 'a.jpg' -> 'b.jpg'
-        [INFO] checking: [ ok ] 'abc' -> 'bbc'
-        [ERRO] 1 potential error(s) detected, please check
+        Searching for paths to rename...
 
-        $ brename -p a -r b -R -D -d -v 2
-        [ERRO] checking: [ new path existed ] 'a.jpg' -> 'b.jpg'
-        [ERRO] 1 potential error(s) detected, please check
+          [OK] a.html -> b.html
+          [new path existed] a.jpeg -> b.jpeg
+          [OK] abc -> bbc
+
+        1 potential error(s) detected, please check
+
+        $ brename -p a -r b -R -D
+        Searching for paths to rename...
+
+          Done searching.
+          [new path existed] example/a.jpeg -> example/b.jpeg
+
+        1 potential error(s) detected, please check
 
 1. Ignoring cases (`-i/--ignore-case`)
 
         $ brename -p "\.jpeg" -r ".jpg" -R -i
-        [INFO] checking: [ ok ] 'abc/A.JPEG' -> 'abc/A.jpg'
-        [INFO] checking: [ ok ] 'abc/B.JPEG' -> 'abc/B.jpg'
-        [INFO] 2 path(s) to be renamed
-        [INFO] renamed: 'abc/A.JPEG' -> 'abc/A.jpg'
-        [INFO] renamed: 'abc/B.JPEG' -> 'abc/B.jpg'
-        [INFO] 2 path(s) renamed
+        Searching for paths to rename...
+
+          Done searching.
+
+        Renaming paths...
+
+          [DONE] abc/A.JPEG -> abc/A.jpg
+          [DONE] abc/B.JPEG -> abc/B.jpg
+
+        2 path(s) renamed in 0.000 seconds
+
 
         $ tree
         .
@@ -371,12 +397,16 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
         # or brename -p "(a)" -r '$1$1' in Linux/Mac OS X
         $ brename -p "(a)" -r "\$1\$1" -i
-        [INFO] checking: [ ok ] 'a.html' -> 'aa.html'
-        [INFO] checking: [ ok ] 'a.jpg' -> 'aa.jpg'
-        [INFO] 2 path(s) to be renamed
-        [INFO] renamed: 'a.html' -> 'aa.html'
-        [INFO] renamed: 'a.jpg' -> 'aa.jpg'
-        [INFO] 2 path(s) renamed
+        Searching for paths to rename...
+
+          Done searching.
+
+        Renaming paths...
+
+          [DONE] a.html -> aa.html
+          [DONE] a.jpg -> aa.jpg
+
+        2 path(s) renamed in 0.000 seconds
 
         $ tree
         .
@@ -391,14 +421,17 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 1. Renaming directory too (`-D/--including-dir`), even renaming directory only (`-D --only-dir`)
 
         $ brename -p "a" -r "A" -R -D
-        [INFO] checking: [ ok ] 'aa.html' -> 'AA.html'
-        [INFO] checking: [ ok ] 'aa.jpg' -> 'AA.jpg'
-        [INFO] checking: [ ok ] 'abc' -> 'Abc'
-        [INFO] 3 path(s) to be renamed
-        [INFO] renamed: 'aa.html' -> 'AA.html'
-        [INFO] renamed: 'aa.jpg' -> 'AA.jpg'
-        [INFO] renamed: 'abc' -> 'Abc'
-        [INFO] 3 path(s) renamed
+        Searching for paths to rename...
+
+          Done searching.
+
+        Renaming paths...
+
+          [DONE] aa.html -> AA.html
+          [DONE] aa.jpg -> AA.jpg
+          [DONE] abc -> Abc
+
+        3 path(s) renamed in 0.001 seconds
 
         $ tree
         .
@@ -413,70 +446,65 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
 1. **Only renaming specific files via include filters (regular expression) (`-f/--include-filters`)**
 
-        $ brename -p '(.)' -r '$1 ' -d
-        [INFO] main options:
-        [INFO]   ignore case: false
-        [INFO]   search pattern: (.)
-        [INFO]   include filters: .
-        [INFO]   search paths: ./
-        [INFO] 
-        [INFO] checking: [ ok ] 'AA.html' -> 'A A . h t m l '
-        [INFO] checking: [ ok ] 'AA.jpg' -> 'A A . j p g '
-        [INFO] checking: [ ok ] 'b.jpg' -> 'b . j p g '
-        [INFO] 3 path(s) to be renamed
+        $ brename -p '(.)' -r ' $1' -d
+        Searching for paths to rename...
+
+          [OK] AA.html ->  A A . h t m l
+          [OK] AA.jpg ->  A A . j p g
+          [OK] b.jpg ->  b . j p g
+
+        3 path(s) to be renamed
+
 
         
-        $ brename -p '(.)' -r '$1 ' -d -f '\.jpg$'
-        [INFO] main options:
-        [INFO]   ignore case: false
-        [INFO]   search pattern: (.)
-        [INFO]   include filters: \.jpg$
-        [INFO]   search paths: ./
-        [INFO] 
-        [INFO] checking: [ ok ] 'AA.jpg' -> 'A A . j p g '
-        [INFO] checking: [ ok ] 'b.jpg' -> 'b . j p g '
-        [INFO] 2 path(s) to be renamed
+        $ brename -p '(.)' -r ' $1' -d -f '\.jpg$'
+        Searching for paths to rename...
+
+          [OK] AA.jpg ->  A A . j p g
+          [OK] b.jpg ->  b . j p g
+
+        2 path(s) to be renamed
 
 
     ***Attention: value of `-f/--include-filters` and `-F/--exclude-filters` should be regular expression, NOT wildcard!***
         
         $ brename -p '(.)' -r '$1 ' -d -f *.jpg
-        [WARN] Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: AA.jpg
-        [INFO] main options:
-        [INFO]   ignore case: false
-        [INFO]   search pattern: (.)
-        [INFO]   include filters: AA.jpg
-        [INFO]   search paths: b.jpg
-        [INFO] 
-        [INFO] 0 path(s) to be renamed
+        Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: AA.jpg
+        Searching for paths to rename...
+
+
+        0 path(s) to be renamed
         
         $ brename -p '(.)' -r '$1 ' -d -f '*.jpg'
-        [WARN] Are you using wildcard for -f/--include-filters? It should be regular expression: *.jpg
-        [ERRO] illegal regular expression for include filter: *.jpg
+        Are you using wildcard for -f/--include-filters? It should be regular expression: *.jpg
+        illegal regular expression for include filter: *.jpg
         
         $ brename -p '(.)' -r '$1 ' -d -f A*
-        [WARN] Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: AA.html
-        [INFO] main options:
-        [INFO]   ignore case: false
-        [INFO]   search pattern: (.)
-        [INFO]   include filters: AA.html
-        [INFO]   search paths: AA.jpg, Abc
-        [INFO] 
-        [INFO] 0 path(s) to be renamed
+        Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: AA.html
+        Searching for paths to rename...
+
+
+        0 path(s) to be renamed
 
 1. Excluding files via exclude filters (regular expression) (`-F/--exclude-filters`)
 
-        $ brename -p '(.)' -r '$1 ' -d
-        [INFO] checking: [ ok ] 'AA.jpg' -> 'A A . j p g '
-        [INFO] checking: [ ok ] 'b.jpg' -> 'b . j p g '
-        [INFO] checking: [ ok ] 'hello AA.html' -> 'h e l l o   A A . h t m l '
-        [INFO] 3 path(s) to be renamed
+        $ brename -p '(.)' -r ' $1' -d
+        Searching for paths to rename...
+
+          [OK] AA.html ->  A A . h t m l
+          [OK] AA.jpg ->  A A . j p g
+          [OK] b.jpg ->  b . j p g
+
+        3 path(s) to be renamed
 
 
-        $ brename -p '(.)' -r '$1 ' -d -F '\.html$'
-        [INFO] checking: [ ok ] 'AA.jpg' -> 'A A . j p g '
-        [INFO] checking: [ ok ] 'b.jpg' -> 'b . j p g '
-        [INFO] 2 path(s) to be renamed
+        $ brename -p '(.)' -r ' $1' -d -F '\.html$'
+        Searching for paths to rename...
+
+          [OK] AA.jpg ->  A A . j p g
+          [OK] b.jpg ->  b . j p g
+
+        2 path(s) to be renamed
         
 1. Skipping files via skip filter (regular expression) (`-S/--skip-filters`). This filter step is performed before the exclude filters.
   The default value `^\.` is for skipping files starting with dot, which are hidden configuration files in Linux.
@@ -487,29 +515,43 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
 1. Do not touch file extension (`-e/--ignore-ext`)
 
-        $ brename -p '(.)' -r '$1 ' -d
-        [INFO] checking: [ ok ] 'AA.jpg' -> 'A A . j p g '
-        [INFO] checking: [ ok ] 'b.jpg' -> 'b . j p g '
-        [INFO] checking: [ ok ] 'hello AA.html' -> 'h e l l o   A A . h t m l '
-        [INFO] 3 path(s) to be renamed
+        $ brename -p '(.)' -r ' $1' -d
+        Searching for paths to rename...
 
-        $ brename -p '(.)' -r '$1 ' -d -e
-        [INFO] checking: [ ok ] 'AA.jpg' -> 'A A .jpg'
-        [INFO] checking: [ ok ] 'b.jpg' -> 'b .jpg'
-        [INFO] checking: [ ok ] 'hello AA.html' -> 'h e l l o   A A .html'
-        [INFO] 3 path(s) to be renamed
+          [OK] AA.html ->  A A . h t m l
+          [OK] AA.jpg ->  A A . j p g
+          [OK] b.jpg ->  b . j p g
+
+        3 path(s) to be renamed
+
+        $ brename -p '(.)' -r ' $1' -d -e
+        Searching for paths to rename...
+
+          [OK] AA.html ->  A A.html
+          [OK] AA.jpg ->  A A.jpg
+          [OK] b.jpg ->  b.jpg
+
+        3 path(s) to be renamed
 
 1. Renaming with number (-r `{nr}`)
 
         $ brename -d -p '(.+)\.' -r 'pic-{nr}.' -f .jpg -d
-        [INFO] checking: [ ok ] 'AA.jpg' -> 'pic-1.jpg'
-        [INFO] checking: [ ok ] 'b.jpg' -> 'pic-2.jpg'
-        [INFO] 2 path(s) to be renamed
+        Searching for paths to rename...
+
+          [OK] AA.jpg -> pic-1.jpg
+          [OK] b.jpg -> pic-2.jpg
+
+        2 path(s) to be renamed
+
 
         $ brename -d -p '(.+)\.' -r 'pic-{nr}.' -f .jpg -d --nr-width 3 --start-num 11
-        [INFO] checking: [ ok ] 'AA.jpg' -> 'pic-011.jpg'
-        [INFO] checking: [ ok ] 'b.jpg' -> 'pic-012.jpg'
-        [INFO] 2 path(s) to be renamed
+        Searching for paths to rename...
+
+          [OK] AA.jpg -> pic-011.jpg
+          [OK] b.jpg -> pic-012.jpg
+
+        2 path(s) to be renamed
+
 
 1. Replace submatch with corresponding value via tab delimited key-value file (`-k/--kv-file`)
 
@@ -519,20 +561,31 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         c       三
 
         $ brename -p '^(\w)' -r '{kv}' -k kv.tsv -K -i -d
-        [INFO] read key-value file: kv.tsv
-        [INFO] 3 pairs of key-value loaded
-        [INFO] checking: [ ok ] 'AA.jpg' -> '一A.jpg'
-        [INFO] checking: [ ok ] 'b.jpg' -> '二.jpg'
-        [WARN] checking: [ unchanged ] 'hello b.html' -> 'hello b.html'
-        [WARN] checking: [ unchanged ] 'kv.tsv' -> 'kv.tsv'
+        read key-value file: kv.tsv
+        3 pairs of key-value loaded
+        Searching for paths to rename...
+
+          [OK] AA.html -> 一A.html
+          [OK] AA.jpg -> 一A.jpg
+          [OK] b.jpg -> 二.jpg
+          [unchanged] kv.tsv -> kv.tsv
+
+        3 path(s) to be renamed
 
 1. Auto mkdir
 
+        $ touch a-b-c.txt
+
         $ brename -f .txt -p '-' -r '/'
-        [INFO] checking: [ ok ] 'a-b-c.txt' -> 'a/b/c.txt'
-        [INFO] 1 path(s) to be renamed
-        [INFO] renamed: 'a-b-c.txt' -> 'a/b/c.txt'
-        [INFO] 1 path(s) renamed
+        Searching for paths to rename...
+
+          Done searching.
+
+        Renaming paths...
+
+          [DONE] a-b-c.txt -> a/b/c.txt
+
+        1 path(s) renamed in 0.000 seconds
 
         $ tree a
         a
@@ -566,43 +619,33 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
     1. default mode: reporting error
 
             $ brename -p 386 -r amd64 -d
-            [ERRO] checking: [ new path existed ] 'brename_darwin_386.tar.gz' -> 'brename_darwin_amd64.tar.gz'
-            [ERRO] checking: [ new path existed ] 'brename_linux_386.tar.gz' -> 'brename_linux_amd64.tar.gz'
-            [ERRO] checking: [ new path existed ] 'brename_windows_386.exe.tar.gz' -> 'brename_windows_amd64.exe.tar.gz'
-            [ERRO] 3 potential error(s) detected, please check
+            Searching for paths to rename...
+
+              [new path existed] brename_linux_386.tar.gz -> brename_linux_amd64.tar.gz
+              [new path existed] brename_windows_386.exe.tar.gz -> brename_windows_amd64.exe.tar.gz
+
+            2 potential error(s) detected, please check
 
     1. allowing overwrite
 
             $ brename -p 386 -r amd64 -d -o 1
-            [WARN] checking: [ new path existed ] 'brename_darwin_386.tar.gz' -> 'brename_darwin_amd64.tar.gz' (will be overwrited)
-            [WARN] checking: [ new path existed ] 'brename_linux_386.tar.gz' -> 'brename_linux_amd64.tar.gz' (will be overwrited)
-            [WARN] checking: [ new path existed ] 'brename_windows_386.exe.tar.gz' -> 'brename_windows_amd64.exe.tar.gz' (will be overwrited)
-            [INFO] 3 path(s) to be renamed
+            Searching for paths to rename...
+
+              [new path existed] brename_linux_386.tar.gz -> brename_linux_amd64.tar.gz (will be overwrited)
+              [new path existed] brename_windows_386.exe.tar.gz -> brename_windows_amd64.exe.tar.gz (will be overwrited)
+
+            2 path(s) to be renamed
 
     1. leave it
 
             $ brename -p 386 -r amd64 -d -o 2
-            [WARN] checking: [ new path existed ] 'brename_darwin_386.tar.gz' -> 'brename_darwin_amd64.tar.gz' (will NOT be overwrited)
-            [WARN] checking: [ new path existed ] 'brename_linux_386.tar.gz' -> 'brename_linux_amd64.tar.gz' (will NOT be overwrited)
-            [WARN] checking: [ new path existed ] 'brename_windows_386.exe.tar.gz' -> 'brename_windows_amd64.exe.tar.gz' (will NOT be overwrited)
-            [INFO] 0 path(s) to be renamed
+            Searching for paths to rename...
 
-    1. this flag also works for another case, where two or more files are renamed to same new path
+              [new path existed] brename_linux_386.tar.gz -> brename_linux_amd64.tar.gz (will NOT be overwrited)
+              [new path existed] brename_windows_386.exe.tar.gz -> brename_windows_amd64.exe.tar.gz (will NOT be overwrited)
 
-            $ brename -f 386 -p 'darwin|linux' -r unix-like -d
-            [INFO] checking: [ ok ] 'brename_darwin_386.tar.gz' -> 'brename_unix-like_386.tar.gz'
-            [ERRO] checking: [ overwriting newly renamed path ] 'brename_linux_386.tar.gz' -> 'brename_unix-like_386.tar.gz'
-            [ERRO] 1 potential error(s) detected, please check
+            0 path(s) to be renamed
 
-            $ brename -f 386 -p 'darwin|linux' -r unix-like -d -o 1
-            [INFO] checking: [ ok ] 'brename_darwin_386.tar.gz' -> 'brename_unix-like_386.tar.gz'
-            [WARN] checking: [ overwriting newly renamed path ] 'brename_linux_386.tar.gz' -> 'brename_unix-like_386.tar.gz' (will be overwrited)
-            [INFO] 2 path(s) to be renamed
-
-            $ brename -f 386 -p 'darwin|linux' -r unix-like -d -o 2
-            [INFO] checking: [ ok ] 'brename_darwin_386.tar.gz' -> 'brename_unix-like_386.tar.gz'
-            [WARN] checking: [ overwriting newly renamed path ] 'brename_linux_386.tar.gz' -> 'brename_unix-like_386.tar.gz' (will NOT be overwrited)
-            [INFO] 1 path(s) to be renamed
 
 ## Real-world examples
 
@@ -611,21 +654,27 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         $ ls 
         GCF_029211165.1_ASM2921116v1_genomic.fa
 
+        # ------------------------------------------------------------------------
         # only keeping accession
-        
-        $ brename -R -p '^(\w{3}_\d{9}\.\d+).+' -r '$1.fa' -d
-        [INFO] search paths: ./
-        [INFO] 
-        [INFO] checking: [ ok ] 'GCF_029211165.1_ASM2921116v1_genomic.fa' -> 'GCF_029211165.1.fa'
-        [INFO] 1 path(s) to be renamed
 
+        Searching for paths to rename...
+
+        [OK] GCF_029211165.1_ASM2921116v1_genomic.fa -> GCF_029211165.fa
+
+        1 path(s) to be renamed
+
+        # ------------------------------------------------------------------------
         # keeping accession.version
         
-        $ brename -R -e -p '\..+' -d
-        [INFO] search paths: ./
-        [INFO] 
-        [INFO] checking: [ ok ] 'GCF_029211165.1_ASM2921116v1_genomic.fa' -> 'GCF_029211165.fa'
-        [INFO] 1 path(s) to be renamed
+        $ brename -R -p '^(\w{3}_\d{9}\.\d+).+' -r '$1.fa' -d
+        Searching for paths to rename...
+
+          [OK] GCF_029211165.1_ASM2921116v1_genomic.fa -> GCF_029211165.1.fa
+
+        1 path(s) to be renamed
+
+        
+
 
 1. Replace matches with corresponding pairing values
 

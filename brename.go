@@ -1,4 +1,4 @@
-// Copyright © 2013-2022 Wei Shen <shenwei356@gmail.com>
+// Copyright © 2013-2024 Wei Shen <shenwei356@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -176,7 +176,7 @@ func getOptions(cmd *cobra.Command) *Options {
 				log.Warningf("something wrong when trying to check whether %s is a existed file", infilter)
 			}
 			if existed {
-				log.Warningf("Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: %s", infilter)
+				log.Warning("Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: %s", infilter)
 			}
 		}
 
@@ -461,7 +461,7 @@ func init() {
 	log = logging.MustGetLogger(app)
 
 	RootCmd.Flags().BoolP("quiet", "q", false, "be quiet, do not show any information and warning")
-	RootCmd.Flags().IntP("verbose", "v", 2, "verbose level (0 for all, 1 for warning, error and renamed files, 2 for only error and renamed files) (default 2)")
+	RootCmd.Flags().IntP("verbose", "v", 2, "verbose level (0 for all, 1 for warning, error and renamed files, 2 for only error and renamed files)")
 	RootCmd.Flags().BoolP("version", "V", false, "print version information and check for update")
 	RootCmd.Flags().BoolP("dry-run", "d", false, "print rename operations but do not run")
 
@@ -659,7 +659,7 @@ var RootCmd = &cobra.Command{
 	Use:   app,
 	Short: "a cross-platform command-line tool for safely batch renaming files/directories via regular expression",
 	Long: fmt.Sprintf(`
-brename -- a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
+brename: a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
 Version: %s
 
@@ -897,7 +897,7 @@ Special replacement symbols:
 			log.Info()
 		}
 
-		if !opt.Quiet || opt.DryRun {
+		if (!opt.Quiet || opt.DryRun) && !opt.ListPath {
 			log.Info(bold("Searching for paths to rename..."))
 			log.Info()
 		}
@@ -908,7 +908,7 @@ Special replacement symbols:
 				checkError(err)
 			}
 		}
-		if !opt.Quiet && !opt.DryRun {
+		if !opt.Quiet && !opt.DryRun && !opt.ListPath {
 			fmt.Fprintf(os.Stderr, "\r  %-78s\n", green("Done searching."))
 		}
 		close(opCH)
@@ -1231,7 +1231,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
 		return nil
 	}
-	if !opt.Quiet && !opt.DryRun {
+	if !opt.Quiet && !opt.DryRun && !opt.ListPath {
 		_path := path
 		n := len(_path)
 		if n > 78 {
@@ -1255,7 +1255,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	// it's a directory
 	files, err := os.ReadDir(path)
 	if err != nil {
-		if !opt.Quiet && !opt.DryRun {
+		if !opt.Quiet && !opt.DryRun && !opt.ListPath {
 			fmt.Fprintf(os.Stderr, "\n")
 		}
 		if !opt.IgnoreErr {
