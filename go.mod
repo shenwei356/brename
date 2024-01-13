@@ -1,4 +1,4 @@
-module github.com/shenwei356/brename
+module github.com/shenwei356/brename/v2
 
 go 1.17
 
