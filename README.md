@@ -189,7 +189,7 @@ Special cases of replacement string:
     b). If followed by numbers, characters, or underscore. That is ambiguous:
             -r '$1abc' actually refers to the variable '1abc', please use '${1}abc'.
             -r '$2_$1' actually refers to the variable '2_', please use '${2}_${1}'.
-  2. Want to replace with a charactor '$',
+  2. Want to replace with a character '$',
     a). If using '{kv}', you need use '$$$$' instead of a single '$':
             -r '{kv}' -k <(sed 's/\$/$$$$/' kv.txt)
     b). If not, use '$$'. e.g., adding '$' to all numbers:
