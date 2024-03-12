@@ -466,7 +466,7 @@ func init() {
 	RootCmd.Flags().BoolP("dry-run", "d", false, "print rename operations but do not run")
 
 	RootCmd.Flags().StringP("pattern", "p", "", "search pattern (regular expression)")
-	RootCmd.Flags().StringP("replacement", "r", "", `replacement. capture variables supported.  e.g. $1 represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"`)
+	RootCmd.Flags().StringP("replacement", "r", "", `replacement. capture variables supported.  e.g. $1 or ${1} (prefered) represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"`)
 	RootCmd.Flags().BoolP("recursive", "R", false, "rename recursively")
 	RootCmd.Flags().BoolP("including-dir", "D", false, "rename directories")
 	RootCmd.Flags().BoolP("only-dir", "", false, "only rename directories")
@@ -696,6 +696,18 @@ Special replacement symbols:
   {kv}    Corresponding value of the key (captured variable $n) by key-value file,
           n can be specified by flag -I/--key-capt-idx (default: 1)
 
+Special cases of replacement string:
+ *1. Capture variables better be in the format of '${1}'.
+    a). If the capture variable is followed with space or other simple, it's OK:
+            -r '$1 abc'
+    b). If followed by numbers, characters, or underscore. That is ambiguous:
+            -r '$1abc' actually refers to the variable '1abc', please use '${1}abc'.
+            -r '$2_$1' actually refers to the variable '2_', please use '${2}_${1}'.
+  2. Want to replace with a charactor '$',
+    a). If using '{kv}', you need use '$$$$' instead of a single '$':
+            -r '{kv}' -k <(sed 's/\$/$$$$/' kv.txt)
+    b). If not, use '$$'. e.g., adding '$' to all numbers:
+            -p '(\d+)' -d -r '$$${1}'
 
 `, VERSION),
 	Run: func(cmd *cobra.Command, args []string) {
