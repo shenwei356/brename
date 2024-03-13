@@ -183,7 +183,7 @@ Special replacement symbols:
           n can be specified by flag -I/--key-capt-idx (default: 1)
 
 Special cases of replacement string:
- *1. Capture variables better be in the format of '${1}'.
+ *1. Capture variables should be in the format of '${1}' to reduce errors.
     a). If the capture variable is followed with space or other simple, it's OK:
             -r '$1 abc'
     b). If followed by numbers, characters, or underscore. That is ambiguous:
