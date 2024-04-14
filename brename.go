@@ -43,7 +43,7 @@ import (
 
 var log *logging.Logger
 
-var VERSION = "2.14.0"
+var VERSION = "2.14.1"
 var app = "brename"
 var LastOpDetailFile = ".brename_detail.txt"
 
@@ -482,7 +482,7 @@ func init() {
 	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern`)
 	RootCmd.Flags().StringP("list-sep", "s", "\n", `separator for list of found paths`)
 	RootCmd.Flags().BoolP("list-abs", "a", false, `list absolute path, using along with -l/--list`)
-	RootCmd.Flags().BoolP("nature-sort", "N", false, `list paths in nature sort, using along with -l/--list`)
+	RootCmd.Flags().BoolP("nature-sort", "N", false, `sort paths in nature order for renaming or listing`)
 
 	RootCmd.Flags().StringP("kv-file", "k", "",
 		`tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)`)
@@ -1295,7 +1295,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	}
 
 	if !opt.OnlyDir {
-		if opt.ListPath && opt.NatureSort {
+		if opt.NatureSort {
 			natsort.Sort(_files)
 		}
 		for _, filename := range _files {
@@ -1310,7 +1310,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	}
 
 	// sub directory
-	if opt.ListPath && opt.NatureSort {
+	if opt.NatureSort {
 		natsort.Sort(_dirs)
 	}
 	for _, filename := range _dirs {

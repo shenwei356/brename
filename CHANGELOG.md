@@ -1,3 +1,5 @@
+- v2.14.1
+    - flag `-N/--nature-sort` is applied to files to be renamed, rather than just for listing files. [#36](https://github.com/shenwei356/brename/issues/36)
 - v2.14.0
     - **setting default value of `-v/--verbose` as 2, which make the output more concise**. [#31](https://github.com/shenwei356/brename/issues/31)
     - output format changed.
