@@ -7,6 +7,8 @@ dir=binaries
 mkdir -p $dir;
 rm -rf $dir/$f;
 
+brename -p ^v2 -r brename -q
+
 for f in brename_*; do
     mkdir -p $dir/$f;
     mv $f $dir/$f;
