@@ -72,6 +72,16 @@
  executable binary files **for most popular operating systems** are freely available
   in [release](https://github.com/shenwei356/brename/releases) page.
 
+#### Method 0: Conda
+
+[Install conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html), then run
+
+    conda install -c conda-forge brename
+
+Or use [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html), which is faster.
+
+    mamba install -c conda-forge brename
+
 #### Method 1: Download binaries
 
 [brename v2.14.0](https://github.com/shenwei356/brename/releases/tag/v2.14.0)
