@@ -116,9 +116,9 @@ And then:
 
 1. **For windows**, just copy `brename.exe` to `C:\WINDOWS\system32`.
 
-#### Method 2: For Go developer
+#### Method 2: Homebrew
 
-    go get -u github.com/shenwei356/brename/
+    brew install brename
 
 #### Method 3: For ArchLinux AUR users
 
@@ -131,9 +131,9 @@ And then:
 #### Method 5: Compiling from source
 
     # download Go from https://go.dev/dl
-    wget https://go.dev/dl/go1.17.13.linux-amd64.tar.gz
+    wget https://go.dev/dl/go1.24.2.linux-amd64.tar.gz
     
-    tar -zxf go1.17.13.linux-amd64.tar.gz -C $HOME/
+    tar -zxf go1.24.2.linux-amd64.tar.gz -C $HOME/
     
     # or 
     #   echo "export PATH=$PATH:$HOME/go/bin" >> ~/.bashrc
