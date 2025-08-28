@@ -23,6 +23,6 @@ require (
 	github.com/shenwei356/xopen v0.3.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/twotwotwo/sorts v0.0.0-20160814051341-bf5c1f2b8553 // indirect
-	github.com/ulikunitz/xz v0.5.10 // indirect
+	github.com/ulikunitz/xz v0.5.14 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 )
