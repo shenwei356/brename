@@ -1,6 +1,6 @@
 module github.com/shenwei356/brename/v2
 
-go 1.17
+go 1.24
 
 require (
 	github.com/fatih/color v1.15.0
@@ -15,7 +15,7 @@ require (
 require (
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
-	github.com/klauspost/compress v1.16.3 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
