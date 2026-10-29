@@ -419,7 +419,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		IncludeFilterRes: infilterRes,
 		SkipFilters:      skipfilters,
 		SkipFilterRes:    skipRes,
-		ExcludeFilters:   infilters,
+		ExcludeFilters:   exfilters,
 		ExcludeFilterRes: exfilterRes,
 
 		ListPath:    onlyList,
@@ -1126,6 +1126,9 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	target2 := target
 	if opt.PathCaseInsensitive {
 		target2 = strings.ToLower(target)
+	}
+	if pathTree == nil {
+		pathTree = make(map[string]struct{}, 1024)
 	}
 	if _, ok := pathTree[target2]; ok {
 		return true, operation{path, target, codeOverwriteNewPath}
