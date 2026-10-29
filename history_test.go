@@ -8,14 +8,28 @@ import (
 	"testing"
 )
 
+// writeTestHistory publishes a staged log for format and legacy-reader fixtures.
+func writeTestHistory(t *testing.T, path string, history []operation) {
+	t.Helper()
+	fh, err := stageHistory(path, history, historyNeedsQuoting(history))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(fh.Name())
+	if err := fh.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(fh.Name(), path); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestHistoryRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, LastOpDetailFile)
 	// Include bytes that JSON strings cannot preserve, in addition to separators.
 	history := []operation{{source: "#a\n\t\xff", target: "b\r\n" + historyDelimiter}}
-	if err := writeHistory(path, history); err != nil {
-		t.Fatal(err)
-	}
+	writeTestHistory(t, path, history)
 	got, err := readHistory(path)
 	if err != nil || len(got) != 1 || got[0] != history[0] {
 		t.Fatalf("history %#v, error %v", got, err)
@@ -118,6 +132,32 @@ func TestCLIUndoPartialFailure(t *testing.T) {
 	}
 }
 
+func TestCLIUndoQuotedPartialFailure(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"#a1", "#a2"} {
+		writeTestFile(t, filepath.Join(dir, name), name)
+	}
+	if out, err := runCLI(t, dir, "-p", "a", "-r", "b", "#a1", "#a2"); err != nil {
+		t.Fatalf("rename: %v: %s", err, out)
+	}
+	writeTestFile(t, filepath.Join(dir, "#a1"), "conflict")
+	if out, err := runCLI(t, dir, "-U"); err == nil {
+		t.Fatalf("expected conflict: %s", out)
+	}
+	requireFile(t, filepath.Join(dir, "#a2"), "#a2")
+	history, err := readHistory(filepath.Join(dir, LastOpDetailFile))
+	if err != nil || len(history) != 1 || history[0].source != "#a1" {
+		t.Fatalf("remaining quoted history: %#v, %v", history, err)
+	}
+	if err := os.Remove(filepath.Join(dir, "#a1")); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runCLI(t, dir, "-u"); err != nil {
+		t.Fatalf("retry: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "#a1"), "#a1")
+}
+
 func TestCLIPartialRenameHistory(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "a"), "original")
@@ -157,7 +197,7 @@ func TestExecuteFirstFailurePreservesHistory(t *testing.T) {
 }
 
 func TestCLIHistoryAliases(t *testing.T) {
-	for _, kind := range []string{"symlink", "hardlink", "target"} {
+	for _, kind := range []string{"symlink", "hardlink", "target", "target child"} {
 		t.Run(kind, func(t *testing.T) {
 			dir := t.TempDir()
 			writeTestFile(t, filepath.Join(dir, "a"), "original")
@@ -175,11 +215,24 @@ func TestCLIHistoryAliases(t *testing.T) {
 				}
 			case "target":
 				args = []string{"-p", "^a$", "-r", LastOpDetailFile, "a"}
+			case "target child":
+				args = []string{"-p", "^a$", "-r", filepath.Join(LastOpDetailFile, "nested", "b"), "a"}
 			}
-			if out, err := runCLI(t, dir, args...); err == nil {
-				t.Fatalf("unsafe history accepted: %s", out)
+			for _, dryRun := range []bool{true, false} {
+				flags := append([]string(nil), args...)
+				if dryRun {
+					flags = append(flags, "-d")
+				}
+				if out, err := runCLI(t, dir, flags...); err == nil {
+					t.Fatalf("unsafe history accepted (dry run %v): %s", dryRun, out)
+				}
 			}
 			requireFile(t, filepath.Join(dir, "a"), "original")
+			if kind == "target child" {
+				if _, err := os.Lstat(path); !os.IsNotExist(err) {
+					t.Fatalf("created a directory in place of the history file: %v", err)
+				}
+			}
 			if kind == "symlink" {
 				requireFile(t, filepath.Join(dir, "precious"), "precious")
 			}
@@ -210,6 +263,40 @@ func TestCLIHistoryDryRun(t *testing.T) {
 	}
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		t.Fatalf("history still exists: %v", err)
+	}
+}
+
+func TestCLIHistoryDirectoryWithUndoDisabled(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a"), "original")
+	target := filepath.Join(LastOpDetailFile, "nested", "b")
+	if out, err := runCLI(t, dir, "-d", "-x", "-p", "^a$", "-r", target, "a"); err != nil {
+		t.Fatalf("preview reserved the history name with undo disabled: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "a"), "original")
+	if out, err := runCLI(t, dir, "-x", "-p", "^a$", "-r", target, "a"); err != nil {
+		t.Fatalf("history name is not reserved with undo disabled: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, target), "original")
+}
+
+func TestCLIClearOverlappingInputs(t *testing.T) {
+	dir := t.TempDir()
+	child := filepath.Join(dir, "child")
+	if err := os.Mkdir(child, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{dir, child} {
+		writeTestFile(t, filepath.Join(path, LastOpDetailFile), "a"+historyDelimiter+"b\n")
+	}
+	args := []string{"--clear", "-R", ".", filepath.Join("child", LastOpDetailFile), LastOpDetailFile, LastOpDetailFile}
+	if out, err := runCLI(t, dir, args...); err != nil {
+		t.Fatalf("history was already cleared by another input: %v: %s", err, out)
+	}
+	for _, path := range []string{dir, child} {
+		if _, err := os.Lstat(filepath.Join(path, LastOpDetailFile)); !os.IsNotExist(err) {
+			t.Fatalf("history remains: %v", err)
+		}
 	}
 }
 
@@ -304,9 +391,7 @@ func TestHistoryLegacyWriteCompatibility(t *testing.T) {
 		{source: "a", target: "b"},
 		{source: "dir/a\t\"\\\xff", target: "dir/#b\r"},
 	}
-	if err := writeHistory(path, history); err != nil {
-		t.Fatal(err)
-	}
+	writeTestHistory(t, path, history)
 	want := ""
 	for _, op := range history {
 		want += op.source + historyDelimiter + op.target + "\n"
@@ -321,6 +406,39 @@ func TestHistoryLegacyWriteCompatibility(t *testing.T) {
 			t.Fatalf("record %d: %#v, want %#v", i, got[i], history[i])
 		}
 	}
+}
+
+func TestCLIForceUndoTransitiveDependencies(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"a", "b", "c"} {
+		writeTestFile(t, filepath.Join(dir, name), name)
+	}
+	writeTestFile(t, filepath.Join(dir, "kv"), "a\tb\nb\tc\nc\td\n")
+	if out, err := runCLI(t, dir, "-o", "1", "-p", "^([abc])$", "-r", "{kv}", "-k", "kv", "a", "b", "c"); err != nil {
+		t.Fatalf("chain: %v: %s", err, out)
+	}
+	// A failure at the end of the chain must block every earlier dependent move.
+	writeTestFile(t, filepath.Join(dir, "c"), "conflict")
+	writeTestFile(t, filepath.Join(dir, "b"), "unrelated")
+	if out, err := runCLI(t, dir, "-U"); err == nil {
+		t.Fatalf("expected undo conflict: %s", out)
+	}
+	requireFile(t, filepath.Join(dir, "b"), "unrelated")
+	requireFile(t, filepath.Join(dir, "c"), "conflict")
+	requireFile(t, filepath.Join(dir, "d"), "a")
+	history, err := readHistory(filepath.Join(dir, LastOpDetailFile))
+	if err != nil || len(history) != 3 {
+		t.Fatalf("remaining history: %#v, %v", history, err)
+	}
+	for _, name := range []string{"b", "c"} {
+		if err := os.Remove(filepath.Join(dir, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if out, err := runCLI(t, dir, "-u"); err != nil {
+		t.Fatalf("retry: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "a"), "a")
 }
 
 func TestCLIHistoryFormatSelection(t *testing.T) {
@@ -368,5 +486,25 @@ func TestCLIHistoryFormatSelection(t *testing.T) {
 				requireFile(t, filepath.Join(dir, "#a"), "special")
 			}
 		})
+	}
+}
+
+func TestCLIHistoryLeadingBOM(t *testing.T) {
+	dir := t.TempDir()
+	source := "\ufeffa"
+	writeTestFile(t, filepath.Join(dir, source), "original")
+	if out, err := runCLI(t, dir, "-p", "^.*$", "-r", "b", source); err != nil {
+		t.Fatalf("rename: %v: %s", err, out)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, LastOpDetailFile))
+	if err != nil || !strings.HasPrefix(string(data), historyHeader+"\n") {
+		t.Fatalf("BOM-prefixed filename exposed to legacy BOM stripping: %q, %v", data, err)
+	}
+	if out, err := runCLI(t, dir, "-u"); err != nil {
+		t.Fatalf("undo: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, source), "original")
+	if _, err := os.Stat(filepath.Join(dir, "a")); !os.IsNotExist(err) {
+		t.Fatalf("created a BOM-stripped filename: %v", err)
 	}
 }

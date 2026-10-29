@@ -88,15 +88,20 @@ Or use [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-install
 
 ***Tip: run `brename -V` to check update !!!***
 
-OS     |Arch      |File, 中国镜像                                                                                                                                                                              |Download Count
-:------|:---------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_386.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_386.tar.gz)                            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_386.tar.gz)
-Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_amd64.tar.gz)                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_amd64.tar.gz)
-Linux  |arm64     |[**brename_linux_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_arm64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_linux_arm64.tar.gz)                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_arm64.tar.gz)
-OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_amd64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_amd64.tar.gz)               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_amd64.tar.gz)
-OS X   |arm64     |[**brename_darwin_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_arm64.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_darwin_arm64.tar.gz)               |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_arm64.tar.gz)
-Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_386.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_386.exe.tar.gz)
-Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_amd64.exe.tar.gz),<br/> [中国镜像](http://app.shenwei.me/data/brename/brename_windows_amd64.exe.tar.gz)|[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_amd64.exe.tar.gz)
+Version checks wait up to 30 seconds for GitHub and report network or HTTP errors.
+A release that differs from the installed version is shown as the latest release;
+it may be older than a local development build.
+
+OS     |Arch      |File                                                                                                                                      |Download Count
+:------|:---------|:-----------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_386.tar.gz)                      |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_386.tar.gz)
+Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_amd64.tar.gz)              |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_amd64.tar.gz)
+Linux  |arm64     |[**brename_linux_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_arm64.tar.gz)              |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_arm64.tar.gz)
+OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_amd64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_amd64.tar.gz)
+OS X   |arm64     |[**brename_darwin_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_arm64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_arm64.tar.gz)
+Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_386.exe.tar.gz)
+Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_amd64.exe.tar.gz)  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_amd64.exe.tar.gz)
+Windows|arm64     |[**brename_windows_arm64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_arm64.exe.tar.gz)  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_arm64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_arm64.exe.tar.gz)
 
 
 Just [download](https://github.com/shenwei356/brename/releases) compressed
@@ -150,6 +155,12 @@ And then:
     # or cross compile for other operating systems and architectures
     CGO_ENABLED=0 GOOS=openbsd GOARCH=amd64 go build -tags netgo -ldflags '-w -s'
 
+Run `sh packaging.sh` from the repository root to create release archives in
+`binaries/`, with MD5 checksums in `.tar.gz.md5.txt` files. The script builds
+amd64 and arm64 binaries for Linux, macOS, and Windows. All builds and checksums
+finish in a temporary directory before release files are replaced. Build failures
+leave existing archives untouched.
+
 ## Usage
 
 ```
@@ -169,7 +180,14 @@ Warnings:
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
   3. New paths ending with periods or spaces, being error-prone, are not allowed.
   4. Undo refuses to overwrite existing paths. Contents overwritten with -o 1 cannot be recovered.
-  5. Renaming the working directory or its ancestors is not allowed.
+  5. Renaming the working directory or its ancestors, or moving a directory into itself, is not allowed.
+
+Search paths:
+  1. Overlapping inputs rename each source entry once; {nr} follows the first encounter.
+     Empty path arguments are invalid; omit paths or use . for the current directory.
+  2. Moves finish before directory or symlink parents used by their paths are renamed.
+     Moves touching the same entry retain their original order. Cyclic dependencies are rejected.
+  3. -l lists matching source paths without reading key-value inputs or applying replacements.
 
 Three path filters:
 
@@ -191,16 +209,20 @@ Three path filters:
 Undo and history:
   1. Successful moves are recorded even if a later move fails. Undo failures remain in the log for retry.
   2. -U continues independent undo operations after failures and returns a nonzero status if any fail.
-  3. -d previews renaming, undo, and --clear without changing files. Undo preview lists recorded operations.
+  3. -d previews renaming, undo, and --clear without changing files. Rename preview checks undo log paths;
+     undo preview lists recorded operations.
   4. History stays in .brename_detail.txt. Existing logs remain readable, and ordinary filenames
      retain the old record format. Logs with filenames requiring escaping need an updated build.
+  5. Undo prepares a temporary recovery log before moving files; its directory must be writable.
 
 
 Special replacement symbols:
 
   {nr}    Ascending integer
   {kv}    Corresponding value of the key (captured variable $n) by key-value file,
-          n can be specified by flag -I/--key-capt-idx (default: 1)
+          n can be specified by flag -I/--key-capt-idx (default: 1).
+          Each match uses its own key. If any key is missing, the whole filename is skipped
+          unless -K/--keep-key or -m/--key-miss-repl supplies a fallback.
 
 Special cases of replacement string:
  *1. Capture variables should be in the format of '${1}' to reduce errors.
@@ -280,7 +302,7 @@ Flags:
   -m, --key-miss-repl string      replacement for key with no corresponding value
   -k, --kv-file string            tab-delimited key-value file for replacing key with value when using
                                   "{kv}" in -r (--replacement)
-  -l, --list                      only list paths that match pattern
+  -l, --list                      only list paths that match pattern, without planning renames
   -a, --list-abs                  list absolute path, using along with -l/--list
   -s, --list-sep string           separator for list of found paths (default "\n")
       --max-depth int             maximum depth for recursive search or --clear (0 for no limit)
@@ -388,7 +410,12 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
    require an updated build. Temporary writes use `.brename_detail.txt.tmp-*` and
    replace the history file only after writing succeeds.
 
-   Undo logs must be regular files and must not alias files being renamed. Do not run
+   Undo prepares a complete temporary recovery log before moving files, then reuses
+   it for any remaining records. If this preparation fails, no files are moved.
+   The history directory must be writable and have room for the temporary log.
+
+   Undo logs must be regular files and must not alias files being renamed. With undo
+   enabled, targets cannot use `.brename_detail.txt` as a directory. Do not run
    concurrent rename operations against the same paths or history file.
 
    Disable undo if you do not want to create `.brename_detail.txt` (`-x`)
@@ -607,6 +634,11 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
 
 1. Replace submatch with corresponding value via tab delimited key-value file (`-k/--kv-file`)
+
+    Each match uses its own captured key. For example, with `a` mapped to `Alpha`
+    and `b` mapped to `Beta`, `-p '([ab])' -r '{kv}' -k kv.tsv` renames `a-b` to
+    `Alpha-Beta`. If any key is missing, the whole filename is skipped unless
+    `-K` or `-m` supplies a fallback.
 
         $ more kv.tsv
         a       一

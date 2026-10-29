@@ -21,13 +21,10 @@
 package main
 
 import (
-	"bufio"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -103,6 +100,8 @@ type Options struct {
 
 	DisableUndo        bool
 	ClearOpDetailFiles bool
+
+	seenSources map[string]struct{} // Directory entries already considered for this rename run.
 }
 
 var reNR = regexp.MustCompile(`\{(NR|nr)\}`)
@@ -114,6 +113,12 @@ func getOptions(cmd *cobra.Command) *Options {
 	if dryrun && quiet {
 		quiet = false
 	}
+	// Enforce quiet mode for all diagnostics, including option-validation warnings.
+	level := logging.DEBUG
+	if quiet {
+		level = logging.ERROR
+	}
+	logging.SetLevel(level, app)
 
 	undo := getFlagBool(cmd, "undo")
 	forceUndo := getFlagBool(cmd, "force-undo")
@@ -181,7 +186,7 @@ func getOptions(cmd *cobra.Command) *Options {
 				log.Warningf("something wrong when trying to check whether %s is a existed file", infilter)
 			}
 			if existed {
-				log.Warning("Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: %s", infilter)
+				log.Warningf("Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: %s", infilter)
 			}
 		}
 
@@ -256,8 +261,10 @@ func getOptions(cmd *cobra.Command) *Options {
 
 	replacement := getFlagString(cmd, "replacement")
 	kvFile := getFlagString(cmd, "kv-file")
+	onlyList := getFlagBool(cmd, "list")
+	keyCaptIdx := getFlagPositiveInt(cmd, "key-capt-idx")
 
-	if kvFile != "" {
+	if kvFile != "" && !onlyList {
 		if len(replacement) == 0 {
 			checkError(fmt.Errorf("flag -r/--replacement needed when given flag -k/--kv-file"))
 		}
@@ -275,10 +282,12 @@ func getOptions(cmd *cobra.Command) *Options {
 	var kvs map[string]string
 	keepKey := getFlagBool(cmd, "keep-key")
 	keyMissRepl := getFlagString(cmd, "key-miss-repl")
-	if reKV.MatchString(replacement) {
+	if reKV.MatchString(replacement) && !onlyList {
 		replaceWithKV = true
-		if !regexp.MustCompile(`\(.+\)`).MatchString(pattern) {
-			checkError(fmt.Errorf(`value of -p/--pattern must contains "(" and ")" to capture data which is used specify the KEY`))
+		// Inspect compiled captures: literal parentheses and noncapturing groups
+		// provide no key, while an empty capture such as () is valid.
+		if keyCaptIdx > re.NumSubexp() {
+			checkError(fmt.Errorf("value of flag -I/--key-capt-idx exceeds the %d capturing group(s) in the pattern", re.NumSubexp()))
 		}
 		if kvFile == "" {
 			checkError(fmt.Errorf(`since replacement symbol "{kv}"/"{KV}" found in value of flag -r/--replacement, tab-delimited key-value file should be given by flag -k/--kv-file`))
@@ -361,7 +370,6 @@ func getOptions(cmd *cobra.Command) *Options {
 	includingDir := getFlagBool(cmd, "including-dir")
 	onlyDir := getFlagBool(cmd, "only-dir")
 	maxDepth := getFlagNonNegativeInt(cmd, "max-depth")
-	onlyList := getFlagBool(cmd, "list")
 
 	if !quiet && verbose == 0 {
 		log.Info("---------------- main options ------------------------")
@@ -440,7 +448,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		KVs:         kvs,
 		KVFile:      kvFile,
 		KeepKey:     keepKey,
-		KeyCaptIdx:  getFlagPositiveInt(cmd, "key-capt-idx"),
+		KeyCaptIdx:  keyCaptIdx,
 		KeyMissRepl: keyMissRepl,
 
 		OverwriteMode: overwriteMode,
@@ -484,7 +492,7 @@ func init() {
 	RootCmd.Flags().StringSliceP("skip-filters", "S", []string{`^\.`}, `skip file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -S "^\." for skipping files starting with a dot, but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'`)
 	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'`)
 
-	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern`)
+	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern, without planning renames`)
 	RootCmd.Flags().StringP("list-sep", "s", "\n", `separator for list of found paths`)
 	RootCmd.Flags().BoolP("list-abs", "a", false, `list absolute path, using along with -l/--list`)
 	RootCmd.Flags().BoolP("nature-sort", "N", false, `sort paths in nature order for renaming or listing`)
@@ -579,14 +587,23 @@ func checkError(err error) {
 	}
 }
 
-// getFileList preserves explicit search roots and removes trailing separators.
+// getFileList preserves search roots and resolves parent components safely.
 func getFileList(args []string) []string {
 	if len(args) == 0 {
 		return []string{"."}
 	}
 	files := make([]string, 0, len(args))
 	for _, path := range args {
-		files = append(files, filepath.Clean(path))
+		if path == "" {
+			checkError(fmt.Errorf("empty search path; use . to select the current directory"))
+		}
+		// Validate directory syntax before Clean can turn a file/ or file/.
+		// argument into a different, valid file path.
+		_, err := os.Lstat(path)
+		checkError(err)
+		normalized, err := normalizePath(path)
+		checkError(err)
+		files = append(files, normalized)
 	}
 	return files
 }
@@ -627,26 +644,41 @@ func getFlagNonNegativeInt(cmd *cobra.Command, flag string) int {
 	return value
 }
 
+// checkVersion bounds network waits while reporting the installed version first.
 func checkVersion() {
-	fmt.Printf("%s v%s\n", app, VERSION)
-	fmt.Println("\nChecking new version...")
+	checkError(reportVersion(&http.Client{Timeout: 30 * time.Second}, os.Stdout))
+}
 
-	resp, err := http.Get(fmt.Sprintf("https://github.com/shenwei356/%s/releases/latest", app))
-	if err != nil {
-		checkError(fmt.Errorf("Network error"))
+// reportVersion accepts only a successful redirect to a release tag. A different
+// release may be older than a local build, so report it without claiming an upgrade.
+func reportVersion(client *http.Client, output io.Writer) error {
+	if _, err := fmt.Fprintf(output, "%s v%s\n\nChecking new version...\n", app, VERSION); err != nil {
+		return err
 	}
-	items := strings.Split(resp.Request.URL.String(), "/")
-	var v string
-	if items[len(items)-1] == "" {
-		v = items[len(items)-2]
-	} else {
-		v = items[len(items)-1]
+	releasePath := fmt.Sprintf("/shenwei356/%s/releases/", app)
+	resp, err := client.Get("https://github.com" + releasePath + "latest")
+	if err != nil {
+		return fmt.Errorf("check latest release: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("check latest release: HTTP %d", resp.StatusCode)
+	}
+	url := resp.Request.URL
+	prefix := releasePath + "tag/"
+	if url.Host != "github.com" || !strings.HasPrefix(url.Path, prefix) {
+		return fmt.Errorf("unexpected release URL: %s", url)
+	}
+	v := strings.TrimSuffix(strings.TrimPrefix(url.Path, prefix), "/")
+	if v == "" || strings.Contains(v, "/") {
+		return fmt.Errorf("invalid release tag in URL: %s", url)
 	}
 	if v == "v"+VERSION {
-		fmt.Printf("You are using the latest version of %s\n", app)
+		_, err = fmt.Fprintf(output, "You are using the latest version of %s\n", app)
 	} else {
-		fmt.Printf("New version available: %s %s at %s\n", app, v, resp.Request.URL.String())
+		_, err = fmt.Fprintf(output, "Latest release: %s %s at %s\n", app, v, url)
 	}
+	return err
 }
 
 // RootCmd represents the base command when called without any subcommands
@@ -669,7 +701,14 @@ Warnings:
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
   3. New paths ending with periods or spaces, being error-prone, are not allowed.
   4. Undo refuses to overwrite existing paths. Contents overwritten with -o 1 cannot be recovered.
-  5. Renaming the working directory or its ancestors is not allowed.
+  5. Renaming the working directory or its ancestors, or moving a directory into itself, is not allowed.
+
+Search paths:
+  1. Overlapping inputs rename each source entry once; {nr} follows the first encounter.
+     Empty path arguments are invalid; omit paths or use . for the current directory.
+  2. Moves finish before directory or symlink parents used by their paths are renamed.
+     Moves touching the same entry retain their original order. Cyclic dependencies are rejected.
+  3. -l lists matching source paths without reading key-value inputs or applying replacements.
 
 Three path filters:
 
@@ -691,16 +730,20 @@ Three path filters:
 Undo and history:
   1. Successful moves are recorded even if a later move fails. Undo failures remain in the log for retry.
   2. -U continues independent undo operations after failures and returns a nonzero status if any fail.
-  3. -d previews renaming, undo, and --clear without changing files. Undo preview lists recorded operations.
+  3. -d previews renaming, undo, and --clear without changing files. Rename preview checks undo log paths;
+     undo preview lists recorded operations.
   4. History stays in .brename_detail.txt. Existing logs remain readable, and ordinary filenames
      retain the old record format. Logs with filenames requiring escaping need an updated build.
+  5. Undo prepares a temporary recovery log before moving files; its directory must be writable.
 
 
 Special replacement symbols:
 
   {nr}    Ascending integer
   {kv}    Corresponding value of the key (captured variable $n) by key-value file,
-          n can be specified by flag -I/--key-capt-idx (default: 1)
+          n can be specified by flag -I/--key-capt-idx (default: 1).
+          Each match uses its own key. If any key is missing, the whole filename is skipped
+          unless -K/--keep-key or -m/--key-miss-repl supplies a fallback.
 
 Special cases of replacement string:
  *1. Capture variables should be in the format of '${1}' to reduce errors.
@@ -768,10 +811,12 @@ Special cases of replacement string:
 						outPath = op.source
 					}
 					if first {
-						fmt.Print(outPath)
+						_, err = fmt.Print(outPath)
+						checkError(err)
 						first = false
 					} else {
-						fmt.Print(opt.ListPathSep + outPath)
+						_, err = fmt.Print(opt.ListPathSep + outPath)
+						checkError(err)
 					}
 					continue
 				}
@@ -831,12 +876,17 @@ Special cases of replacement string:
 				}
 			}
 			if opt.ListPath {
-				fmt.Println()
+				_, err = fmt.Println()
+				checkError(err)
 			}
 			done <- 1
 		}()
 
 		paths := getFileList(args)
+		if len(paths) > 1 {
+			// A single traversal already visits each entry once, in postorder.
+			opt.seenSources = make(map[string]struct{})
+		}
 
 		if !opt.Quiet && opt.Verbose == 0 {
 			log.Info("------------------------------------------------------")
@@ -871,6 +921,21 @@ Special cases of replacement string:
 		if opt.ListPath {
 			return
 		}
+		needsOrdering := len(paths) > 1
+		if !needsOrdering {
+			// Postorder traversal already handles names within each directory;
+			// cross-directory targets may depend on another entry in the same root.
+			for _, op := range ops {
+				if filepath.Dir(op.source) != filepath.Dir(op.target) {
+					needsOrdering = true
+					break
+				}
+			}
+		}
+		if needsOrdering {
+			ops, err = orderOperations(ops)
+			checkError(err)
+		}
 		if opt.DryRun || (!opt.Quiet && opt.Verbose == 0) || n == 0 {
 			log.Info()
 			log.Infof("%d path(s) to be renamed", n)
@@ -880,6 +945,11 @@ Special cases of replacement string:
 		}
 
 		if opt.DryRun {
+			// Preview the same history-path restrictions as execution without
+			// creating a journal or modifying an existing log.
+			if !opt.DisableUndo {
+				checkError(validateHistoryPath(opt.LastOpDetailFile, ops))
+			}
 			return
 		}
 
@@ -943,7 +1013,8 @@ func (op operation) String() string {
 
 // checkOperation checks an renaming operation
 func checkOperation(opt *Options, path string) (bool, operation) {
-	path = filepath.Clean(path)
+	path, err := normalizePath(path)
+	checkError(err)
 	dir, filename := filepath.Split(path)
 	var ext string
 	if opt.IgnoreExt {
@@ -954,67 +1025,78 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	if !opt.PatternRe.MatchString(filename) {
 		return false, operation{}
 	}
+	// Listing selects source paths and never computes or validates rename targets.
+	if opt.ListPath {
+		return true, operation{source: path, target: path, code: codeUnchanged}
+	}
+	source2, err := pathKey(path)
+	checkError(err)
+	if opt.seenSources != nil {
+		if _, seen := opt.seenSources[source2]; seen {
+			return false, operation{}
+		}
+		// Deduplicate before expanding {nr}, including overlapping search roots.
+		opt.seenSources[source2] = struct{}{}
+	}
 
 	r := opt.Replacement
 
 	if opt.ReplaceWithNR {
+		// A previous increment can wrap the largest supported integer. Reject
+		// that next value while still allowing a single use of the maximum.
+		if opt.StartNum < 0 {
+			checkError(fmt.Errorf("{nr} exceeds the maximum supported integer"))
+		}
 		r = reNR.ReplaceAllString(r, fmt.Sprintf(opt.NRFormat, opt.StartNum))
 		opt.StartNum++
 	}
 
+	var filename2 string
 	if opt.ReplaceWithKV {
-		founds := opt.PatternRe.FindAllStringSubmatch(filename, -1)
-		if len(founds) > 0 {
-			found := founds[0]
-			if opt.KeyCaptIdx > len(found)-1 {
-				checkError(fmt.Errorf("value of flag -I/--key-capt-idx overflows"))
-			}
-			k := found[opt.KeyCaptIdx]
-			if opt.IgnoreCase {
-				k = strings.ToLower(k)
-			}
-			if _, ok := opt.KVs[k]; ok {
-				r = reKV.ReplaceAllString(r, opt.KVs[k])
-			} else if opt.KeepKey {
-				r = reKV.ReplaceAllString(r, found[opt.KeyCaptIdx])
-			} else if opt.KeyMissRepl != "" {
-				r = reKV.ReplaceAllString(r, opt.KeyMissRepl)
-			} else {
-				return false, operation{path, path, codeUnchanged}
-			}
+		var ok bool
+		filename2, ok = replaceWithKVs(opt, filename, r)
+		if !ok {
+			return false, operation{path, path, codeUnchanged}
 		}
+	} else {
+		filename2 = opt.PatternRe.ReplaceAllString(filename, r)
+	}
+	filename2 += ext
+	if filename2 == filename+ext {
+		return true, operation{path, path, codeUnchanged}
 	}
 
-	filename2 := opt.PatternRe.ReplaceAllString(filename, r) + ext
-
-	target := filepath.Join(dir, filename2)
+	// Do not clean away a symlink followed by ".." before resolving its parent.
+	target, err := normalizePath(dir + filename2)
+	checkError(err)
 
 	if filename2 == "" {
 		return true, operation{path, target, codeMissingTarget}
 	}
 
+	// Equivalent spellings such as "a" and "./a" must not replace undo history.
+	target2, err := pathKey(target)
+	checkError(err)
+	if source2 == target2 {
+		return true, operation{path, target, codeUnchanged}
+	}
+	// Existing names can contain these characters on Unix. Only changed names
+	// are subject to the cross-platform restrictions on new paths.
 	if filename2[len(filename2)-1] == '.' {
 		return true, operation{path, target, codeEndingWithPeriod}
 	}
-
 	if filename2[len(filename2)-1] == ' ' {
 		return true, operation{path, target, codeEndingWithSpace}
 	}
 
-	if filename2 == filename+ext {
-		return true, operation{path, target, codeUnchanged}
-	}
-
-	checkError(protectWorkingDirectory(path, target))
+	checkError(validateDirectoryMove(path, target))
 	exists, err := targetExists(path, target)
 	checkError(err)
 	if exists {
 		return true, operation{path, target, codeExisted}
 	}
 
-	// Resolve directory aliases, but keep the final directory entry itself.
-	target2, err := pathKey(target)
-	checkError(err)
+	// Compare resolved parents while keeping the final directory entry itself.
 	if opt.PathCaseInsensitive {
 		target2 = strings.ToLower(target2)
 	}
@@ -1027,6 +1109,45 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	pathTree[target2] = struct{}{}
 
 	return true, operation{path, target, codeOK}
+}
+
+// replaceWithKVs expands each regex match with its own captured key. A missing
+// key skips the whole filename unless the caller selected a fallback value.
+func replaceWithKVs(opt *Options, filename, replacement string) (string, bool) {
+	if opt.KeyCaptIdx > opt.PatternRe.NumSubexp() {
+		checkError(fmt.Errorf("value of flag -I/--key-capt-idx overflows"))
+	}
+	var result []byte
+	last := 0 // First byte not yet copied from the original filename.
+	for _, match := range opt.PatternRe.FindAllStringSubmatchIndex(filename, -1) {
+		start, end := match[2*opt.KeyCaptIdx], match[2*opt.KeyCaptIdx+1]
+		key := ""
+		if start >= 0 { // An unmatched optional capture has the empty key.
+			key = filename[start:end]
+		}
+		lookupKey := key
+		if opt.IgnoreCase {
+			lookupKey = strings.ToLower(lookupKey)
+		}
+		value, ok := opt.KVs[lookupKey]
+		if !ok {
+			switch {
+			case opt.KeepKey:
+				value = key
+			case opt.KeyMissRepl != "":
+				value = opt.KeyMissRepl
+			default:
+				return "", false
+			}
+		}
+		// Keep the existing two-stage dollar escaping and regex capture expansion.
+		r := reKV.ReplaceAllString(replacement, value)
+		result = append(result, filename[last:match[0]]...)
+		result = opt.PatternRe.ExpandString(result, r, filename, match)
+		last = match[1]
+	}
+	result = append(result, filename[last:]...)
+	return string(result), true
 }
 
 // excluded controls both path exclusion and recursive directory pruning.
@@ -1060,6 +1181,9 @@ func clear(opt *Options, path string, depth int) error {
 		return nil
 	}
 	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil // An earlier, overlapping input may already have removed this log.
+	}
 	if err != nil {
 		return err
 	}
@@ -1100,7 +1224,10 @@ func clear(opt *Options, path string, depth int) error {
 
 // walk recursively search file to rename
 func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
-	path = filepath.Clean(path)
+	path, err := normalizePath(path)
+	if err != nil {
+		return err
+	}
 	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
 		return nil
 	}
@@ -1221,7 +1348,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 // readKVs reads a tab-delimited file containing key-value pairs
 func readKVs(file string, ignoreCase bool) (kvs map[string]string, err error) {
 	kvs = make(map[string]string)
-	reader, closeInput, err := openKVInput(file)
+	reader, err := xopen.Ropen(file)
 	if err == xopen.ErrNoContent {
 		return kvs, nil
 	}
@@ -1229,7 +1356,7 @@ func readKVs(file string, ignoreCase bool) (kvs map[string]string, err error) {
 		return nil, err
 	}
 	defer func() {
-		if closeErr := closeInput(); err == nil {
+		if closeErr := reader.Close(); err == nil {
 			err = closeErr
 		}
 	}()
@@ -1251,78 +1378,4 @@ func readKVs(file string, ignoreCase bool) (kvs map[string]string, err error) {
 			return kvs, nil
 		}
 	}
-}
-
-// openKVInput retains compressed files, stdin, URLs and command inputs. Gzip
-// uses the standard reader because the old pgzip dependency accepts a missing
-// trailer as EOF. Keep the existing Go version requirement for this fix.
-func openKVInput(file string) (*bufio.Reader, func() error, error) {
-	var raw io.Reader
-	var closeSource func() error
-	switch {
-	case file == "-":
-		raw = os.Stdin
-		closeSource = func() error { return nil }
-	case strings.HasPrefix(file, "|"):
-		args := strings.Fields(file[1:])
-		if len(args) == 0 {
-			return nil, nil, fmt.Errorf("empty key-value input command")
-		}
-		cmd := exec.Command(args[0], args[1:]...)
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return nil, nil, err
-		}
-		if err := cmd.Start(); err != nil {
-			stdout.Close()
-			return nil, nil, err
-		}
-		raw = stdout
-		closeSource = func() error {
-			closeErr := stdout.Close()
-			if err := cmd.Wait(); err != nil {
-				return err
-			}
-			return closeErr
-		}
-	default:
-		var err error
-		raw, err = xopen.XReader(file)
-		if err != nil {
-			return nil, nil, err
-		}
-		closeSource = raw.(io.Closer).Close
-	}
-	buffer := bufio.NewReader(raw)
-	magic, _ := buffer.Peek(2)
-	isGzip := len(magic) == 2 && magic[0] == 0x1f && magic[1] == 0x8b
-	var decoded io.ReadCloser
-	var err error
-	if isGzip {
-		decoded, err = gzip.NewReader(buffer)
-	} else {
-		decoded, err = xopen.Buf(buffer)
-	}
-	if err != nil {
-		if closeErr := closeSource(); err == xopen.ErrNoContent && closeErr != nil {
-			err = closeErr
-		}
-		return nil, nil, err
-	}
-	closeInput := func() error {
-		decodeErr := decoded.Close()
-		sourceErr := closeSource()
-		if decodeErr != nil {
-			return decodeErr
-		}
-		return sourceErr
-	}
-	reader := bufio.NewReader(decoded)
-	// xopen handles a BOM itself; match that behavior for the standard gzip reader.
-	if isGzip {
-		if bom, _ := reader.Peek(3); string(bom) == "\xef\xbb\xbf" {
-			reader.Discard(3)
-		}
-	}
-	return reader, closeInput, nil
 }

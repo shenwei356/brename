@@ -1,19 +1,16 @@
 # Changelog
 
 - v2.14.1
-    - flag `-N/--nature-sort` is applied to files to be renamed, rather than just for listing files. [#36](https://github.com/shenwei356/brename/issues/36)
-    - fix: correct ExcludeFilters option assignment. by @mazkev [#41](https://github.com/shenwei356/brename/pull/41)
-    - fix: detect conflicting targets through absolute, relative, and symlinked directory paths, and protect dangling symlinks from unintended overwrites.
-    - fix: prevent renaming the working directory or its ancestors and reject unsafe undo log paths.
-    - fix: preserve completed rename operations after failures, check file operation and history write errors, and keep the previous log if no rename succeeds.
-    - fix: prevent undo from overwriting existing paths; retain failed operations for retry and return a nonzero status after failed forced undo.
-    - fix: keep `.brename_detail.txt` and the existing record format for ordinary filenames; use escaping only when required and continue to read existing logs.
-    - fix: honor dry run for undo and history removal.
-    - fix: handle explicit current/parent directories, trailing path separators, and file arguments with `--only-dir` correctly.
-    - fix: apply skip and exclude filters to recursive traversal without letting include filters hide matching files in subdirectories.
-    - fix: inspect file metadata without reading file contents, avoiding large-file allocations and blocking on named pipes.
-    - fix: remove a data race when listing absolute paths and reject truncated or corrupt gzip key-value files.
-    - add command-level regression tests and synchronize command help in the README.
+    - flag `-N/--nature-sort` now applies to renaming as well as listing. [#36](https://github.com/shenwei356/brename/issues/36)
+    - fix: correct exclude-filter assignment and recursive filtering, handle explicit search paths and `--only-dir` consistently, and inspect metadata without reading file contents. Exclude-filter assignment fix by @mazkev. [#41](https://github.com/shenwei356/brename/pull/41)
+    - fix: simplify path handling while preserving symlink and `..` resolution; detect aliased targets and distinct hard links, protect dangling symlinks, reject moves into a directory's own descendants, and protect the working directory, its ancestors, and undo log paths during execution and rename preview.
+    - fix: deduplicate overlapping inputs before assigning numbers, reject number overflow and cyclic dependencies, and order directory moves without changing move-chain or overwrite priority.
+    - fix: check history writes before moving files, preserve completed operations after failures and previous history when nothing changes, and escape special filenames while retaining compatibility with existing undo logs.
+    - fix: prevent undo from overwriting existing paths, preserve failed operations and their dependencies for retry, reserve recovery-log space before undo, and honor dry run and overlapping inputs when removing history.
+    - fix: validate `{kv}` capture indices, support empty captures, use the corresponding key for each match, and reject corrupt key-value input while stopping failed input commands.
+    - fix: keep listing independent of rename and replacement checks, remove a data race in absolute-path listing, report output errors, and honor quiet mode while retaining errors and dry-run previews.
+    - fix: add a timeout and HTTP-response checks to version queries, and avoid reporting older releases as upgrades.
+    - fix: package only built binaries and finish all builds and checksums before replacing existing release files.
 - v2.14.0
     - **setting default value of `-v/--verbose` as 2, which make the output more concise**. [#31](https://github.com/shenwei356/brename/issues/31)
     - output format changed.

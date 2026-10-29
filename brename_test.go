@@ -5,15 +5,100 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
+
+// releaseTransport serves deterministic release responses without network access.
+type releaseTransport func(*http.Request) (*http.Response, error)
+
+func (transport releaseTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	return transport(request)
+}
+
+// releaseBody records closure of successful and rejected HTTP responses.
+type releaseBody struct {
+	io.Reader
+	closed bool
+}
+
+func (body *releaseBody) Close() error {
+	body.closed = true
+	return nil
+}
+
+func TestReportVersion(t *testing.T) {
+	for _, test := range []struct {
+		name, tag, want string
+		status          int
+		wantError       bool
+	}{
+		{"current", "v" + VERSION, "You are using the latest version", 200, false},
+		{"older release", "v0.1.0", "Latest release: brename v0.1.0", 200, false},
+		{"server error", "", "", 503, true},
+		{"missing redirect", "", "", 200, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			body := &releaseBody{Reader: strings.NewReader("response")}
+			client := &http.Client{Transport: releaseTransport(func(request *http.Request) (*http.Response, error) {
+				if test.tag != "" && strings.HasSuffix(request.URL.Path, "/latest") {
+					return &http.Response{
+						StatusCode: http.StatusFound,
+						Header:     http.Header{"Location": {"/shenwei356/brename/releases/tag/" + test.tag}},
+						Body:       io.NopCloser(strings.NewReader("")),
+					}, nil
+				}
+				return &http.Response{StatusCode: test.status, Body: body, Request: request}, nil
+			})}
+			var output bytes.Buffer
+			err := reportVersion(client, &output)
+			if (err != nil) != test.wantError || !strings.Contains(output.String(), test.want) {
+				t.Fatalf("error %v, output %q", err, output.String())
+			}
+			if !body.closed {
+				t.Fatal("response body left open")
+			}
+			if test.wantError && strings.Contains(output.String(), "Latest release:") {
+				t.Fatalf("invalid response reported as release: %q", output.String())
+			}
+		})
+	}
+}
+
+func TestReportVersionTimeout(t *testing.T) {
+	client := &http.Client{
+		Timeout: 10 * time.Millisecond,
+		Transport: releaseTransport(func(request *http.Request) (*http.Response, error) {
+			<-request.Context().Done()
+			return nil, request.Context().Err()
+		}),
+	}
+	if err := reportVersion(client, io.Discard); err == nil {
+		t.Fatal("stalled request did not report a timeout")
+	}
+}
+
+func TestReportVersionOutputFailure(t *testing.T) {
+	reader, writer := io.Pipe()
+	reader.Close()
+	defer writer.Close()
+	client := &http.Client{Transport: releaseTransport(func(*http.Request) (*http.Response, error) {
+		t.Fatal("network request made after output failure")
+		return nil, nil
+	})}
+	if err := reportVersion(client, writer); err != io.ErrClosedPipe {
+		t.Fatalf("output error: %v", err)
+	}
+}
 
 func TestCodeString(t *testing.T) {
 	tests := []struct {
@@ -449,4 +534,241 @@ func TestCLINaturalNumbering(t *testing.T) {
 	for i, name := range []string{"f1", "f2", "f10"} {
 		requireFile(t, filepath.Join(dir, fmt.Sprint(i+1)), name)
 	}
+}
+
+func TestCLIEmptyKeyCapture(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a"), "original")
+	writeTestFile(t, filepath.Join(dir, "kv"), "\tX\n")
+	if out, err := runCLI(t, dir, "-p", "()", "-r", "{kv}", "-k", "kv", "a"); err != nil {
+		t.Fatalf("empty capture: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "XaX"), "original")
+}
+
+func TestCLIInvalidKeyCaptureWithoutMatches(t *testing.T) {
+	for _, pattern := range []string{"(?:a)", `\(a\)`, "(a)"} {
+		t.Run(pattern, func(t *testing.T) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "z"), "original")
+			writeTestFile(t, filepath.Join(dir, "kv"), "a\tb\n")
+			index := "1"
+			if pattern == "(a)" {
+				index = "2"
+			}
+			if out, err := runCLI(t, dir, "-p", pattern, "-r", "{kv}", "-k", "kv", "-I", index, "z"); err == nil {
+				t.Fatalf("accepted missing capture: %s", out)
+			}
+			requireFile(t, filepath.Join(dir, "z"), "original")
+		})
+	}
+}
+
+func TestCLIListIgnoresKVReplacement(t *testing.T) {
+	for _, extra := range [][]string{nil, {"-k", "missing-kv-file"}} {
+		dir := t.TempDir()
+		writeTestFile(t, filepath.Join(dir, "a"), "original")
+		args := append([]string{"-l", "-p", "^a$", "-r", "{kv}"}, extra...)
+		args = append(args, "a")
+		out, err := runCLI(t, dir, args...)
+		if err != nil || out != "a\n" {
+			t.Fatalf("listing depended on unused replacement: %v: %q", err, out)
+		}
+	}
+}
+
+func TestCLINumberOverflow(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a"), "one")
+	writeTestFile(t, filepath.Join(dir, "b"), "two")
+	maximum := strconv.Itoa(int(^uint(0) >> 1))
+	if out, err := runCLI(t, dir, "-p", "^[ab]$", "-r", "{nr}", "--start-num", maximum, "a", "b"); err == nil {
+		t.Fatalf("counter overflow accepted: %s", out)
+	}
+	requireFile(t, filepath.Join(dir, "a"), "one")
+	requireFile(t, filepath.Join(dir, "b"), "two")
+	// The maximum value itself is valid when no following number is needed.
+	if out, err := runCLI(t, dir, "-p", "^a$", "-r", "{nr}", "--start-num", maximum, "a"); err != nil {
+		t.Fatalf("maximum counter: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, maximum), "one")
+}
+
+func TestCLIQuietNoMatches(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a"), "original")
+	out, err := runCLI(t, dir, "-q", "-p", "nomatch", "-r", "b", "a")
+	if err != nil || out != "" {
+		t.Fatalf("quiet unmatched input: %v: %q", err, out)
+	}
+}
+
+func TestCLIQuietIgnoredDirectoryError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix directory permission fixture")
+	}
+	dir := t.TempDir()
+	locked := filepath.Join(dir, "locked")
+	if err := os.Mkdir(locked, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(locked, 0700)
+	if _, err := os.ReadDir(locked); err == nil {
+		t.Skip("directory permissions are not enforced for this user")
+	}
+	out, err := runCLI(t, dir, "-q", "-E", "-p", ".", "-r", "b", "locked")
+	if err != nil || out != "" {
+		t.Fatalf("quiet ignored directory error: %v: %q", err, out)
+	}
+}
+
+func TestCLIQuietDiagnostics(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a"), "original")
+	// A filter matching an existing path normally emits a warning.
+	out, err := runCLI(t, dir, "-q", "-p", "^a$", "-r", "b", "-f", "a", "a")
+	if err != nil || out != "" {
+		t.Fatalf("quiet filter warning: %v: %q", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "b"), "original")
+	if out, err := runCLI(t, dir, "-q", "-p", "(", "b"); err == nil || out == "" {
+		t.Fatalf("quiet suppressed a fatal error: %v: %q", err, out)
+	}
+	out, err = runCLI(t, dir, "-q", "-d", "-p", "^b$", "-r", "c", "b")
+	if err != nil || !strings.Contains(out, "b -> c") {
+		t.Fatalf("quiet suppressed dry-run preview: %v: %q", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "b"), "original")
+}
+
+func TestCLIEmptySearchRoot(t *testing.T) {
+	for _, args := range [][]string{
+		{"-p", "^a$", "-r", "b", ""},
+		{"-l", "-p", "^a$", ""},
+		{"--clear", ""},
+	} {
+		t.Run(args[0], func(t *testing.T) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "a"), "original")
+			history := "old" + historyDelimiter + "older\n"
+			writeTestFile(t, filepath.Join(dir, LastOpDetailFile), history)
+			if out, err := runCLI(t, dir, args...); err == nil {
+				t.Fatalf("empty search root treated as current directory: %s", out)
+			}
+			requireFile(t, filepath.Join(dir, "a"), "original")
+			requireFile(t, filepath.Join(dir, LastOpDetailFile), history)
+		})
+	}
+}
+
+func TestCLIFileAsDirectoryInput(t *testing.T) {
+	for _, suffix := range []string{string(os.PathSeparator), string(os.PathSeparator) + "."} {
+		t.Run(suffix, func(t *testing.T) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "a"), "original")
+			if out, err := runCLI(t, dir, "-p", "^a$", "-r", "b", "a"+suffix); err == nil {
+				t.Fatalf("file accepted as directory before path cleaning: %s", out)
+			}
+			requireFile(t, filepath.Join(dir, "a"), "original")
+		})
+	}
+}
+
+func TestCLIListDoesNotPlanRenames(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "list_current")
+	if err := os.Mkdir(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runCLI(t, root, "-l", "--only-dir", "-p", "current", root)
+	if err != nil || strings.TrimSpace(out) != root {
+		t.Fatalf("listing current directory: %v: %s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(root, LastOpDetailFile)); !os.IsNotExist(err) {
+		t.Fatalf("listing created history: %v", err)
+	}
+}
+
+func TestCLIListWriteError(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a"), "original")
+	sink, err := os.Open(filepath.Join(dir, "a")) // Read-only stdout must fail without modifying it.
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sink.Close()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCLIProcess$", "--", "-l", "-p", "a", "a")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "BRENAME_TEST_HELPER=1", "GORACE=atexit_sleep_ms=0")
+	cmd.Stdout = sink
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err == nil {
+		t.Fatalf("output error reported as success: %s", stderr.String())
+	}
+	if stderr.Len() == 0 {
+		t.Fatal("output error was not reported")
+	}
+	requireFile(t, filepath.Join(dir, "a"), "original")
+}
+
+func TestReplaceWithKVsMultipleMatches(t *testing.T) {
+	for _, tt := range []struct {
+		name, pattern, input, replacement, want string
+		kvs                                     map[string]string
+		keep, ignoreCase                        bool
+		fallback                                string
+		ok                                      bool
+	}{
+		{name: "each key", pattern: `([ab])`, input: "a-b", replacement: "{kv}", kvs: map[string]string{"a": "Alpha", "b": "Beta"}, want: "Alpha-Beta", ok: true},
+		{name: "captures", pattern: `([ab])(\d)`, input: "a1-b2", replacement: "{kv}_${2}", kvs: map[string]string{"a": "Alpha", "b": "Beta"}, want: "Alpha_1-Beta_2", ok: true},
+		{name: "missing key", pattern: `([ab])`, input: "a-b", replacement: "{kv}", kvs: map[string]string{"a": "Alpha"}},
+		{name: "keep key", pattern: `([ab])`, input: "a-b", replacement: "{kv}", kvs: map[string]string{"a": "Alpha"}, keep: true, want: "Alpha-b", ok: true},
+		{name: "fallback", pattern: `([ab])`, input: "a-b", replacement: "{kv}", kvs: map[string]string{"a": "Alpha"}, fallback: "unknown", want: "Alpha-unknown", ok: true},
+		{name: "ignore case", pattern: `(?i)([ab])`, input: "A-b", replacement: "{kv}", kvs: map[string]string{"a": "Alpha", "b": "Beta"}, ignoreCase: true, want: "Alpha-Beta", ok: true},
+		{name: "empty matches", pattern: `()`, input: "ab", replacement: "{kv}", kvs: map[string]string{"": "X"}, want: "XaXbX", ok: true},
+		{name: "dollar escaping", pattern: `(a)`, input: "a-a", replacement: "{kv}", kvs: map[string]string{"a": "$$$$"}, want: "$-$", ok: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := &Options{PatternRe: regexp.MustCompile(tt.pattern), KeyCaptIdx: 1, KVs: tt.kvs, KeepKey: tt.keep, KeyMissRepl: tt.fallback, IgnoreCase: tt.ignoreCase}
+			got, ok := replaceWithKVs(opt, tt.input, tt.replacement)
+			if ok != tt.ok || got != tt.want {
+				t.Fatalf("got %q, %v; want %q, %v", got, ok, tt.want, tt.ok)
+			}
+		})
+	}
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a-b"), "original")
+	writeTestFile(t, filepath.Join(dir, "kv"), "a\tAlpha\nb\tBeta\n")
+	if out, err := runCLI(t, dir, "-p", "([ab])", "-r", "{kv}", "-k", "kv", "a-b"); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "Alpha-Beta"), "original")
+}
+
+// TestKVProducerProcess stays alive after writing malformed compressed input.
+func TestKVProducerProcess(t *testing.T) {
+	if os.Getenv("BRENAME_TEST_KV_PRODUCER") != "1" {
+		return
+	}
+	if _, err := os.Stdout.Write([]byte("\x1f\x8bBADBADBADBAD")); err != nil {
+		os.Exit(1)
+	}
+	time.Sleep(time.Minute)
+	os.Exit(0)
+}
+
+func TestCLIInvalidKVCommandStopsProducer(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a"), "original")
+	t.Setenv("BRENAME_TEST_KV_PRODUCER", "1")
+	command := "|" + strconv.Quote(os.Args[0]) + " -test.run=^TestKVProducerProcess$"
+	out, err := runCLI(t, dir, "-p", "(a)", "-r", "{kv}", "-k", command, "a")
+	if err == nil || !strings.Contains(out, "gzip") {
+		t.Fatalf("expected gzip error: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "a"), "original")
 }

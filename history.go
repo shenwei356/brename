@@ -24,6 +24,9 @@ func historyNeedsQuoting(ops []operation) bool {
 		if strings.HasPrefix(op.source, "#") {
 			return true // Older readers treat these source names as comments.
 		}
+		if strings.HasPrefix(op.source, "\ufeff") {
+			return true // Older readers strip a UTF-8 BOM at the start of the log.
+		}
 		for _, path := range []string{op.source, op.target} {
 			if strings.Contains(path, "\n") || strings.Contains(path, historyDelimiter) {
 				return true
@@ -58,7 +61,9 @@ func validateHistoryPath(path string, ops []operation) error {
 				}
 			}
 			entryInfo, statErr := os.Lstat(entry)
-			if key == entryKey || (info != nil && statErr == nil && os.SameFile(info, entryInfo)) {
+			// The log must remain a file; a target beneath it would create a
+			// directory at the reserved name before the log can be published.
+			if containsPath(key, entryKey) || (info != nil && statErr == nil && os.SameFile(info, entryInfo)) {
 				return fmt.Errorf("undo log conflicts with renamed path: %s", entry)
 			}
 		}
@@ -92,27 +97,20 @@ func writeHistoryRecord(w io.Writer, op operation, quoted bool) error {
 	return err
 }
 
-// writeHistory replaces a log only after all remaining records have been written.
-func writeHistory(path string, history []operation) error {
-	if err := validateHistoryPath(path, history); err != nil {
-		return err
-	}
-	quoted := historyNeedsQuoting(history)
+// stageHistory reserves space for a complete log without replacing the old one.
+func stageHistory(path string, history []operation, quoted bool) (*os.File, error) {
 	fh, err := createHistory(path, quoted)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer os.Remove(fh.Name())
 	for _, op := range history {
 		if err := writeHistoryRecord(fh, op, quoted); err != nil {
 			fh.Close()
-			return err
+			os.Remove(fh.Name())
+			return nil, err
 		}
 	}
-	if err := fh.Close(); err != nil {
-		return err
-	}
-	return os.Rename(fh.Name(), path)
+	return fh, nil
 }
 
 // readHistory validates the entire log before any undo operation is attempted.
@@ -196,6 +194,21 @@ func undoOperations(opt *Options) error {
 	if err := validateHistoryPath(opt.LastOpDetailFile, history); err != nil {
 		return err
 	}
+	var journal *os.File // Reserve recovery space before changing any file names.
+	keepJournal := false // Retain a valid recovery log if its publication fails.
+	quoted := historyNeedsQuoting(history)
+	if !opt.DryRun {
+		journal, err = stageHistory(opt.LastOpDetailFile, history, quoted)
+		if err != nil {
+			return fmt.Errorf("prepare undo history: %w", err)
+		}
+		defer func() {
+			journal.Close()
+			if !keepJournal {
+				os.Remove(journal.Name())
+			}
+		}()
+	}
 	completed := make([]bool, len(history)) // Only successful moves leave the retry log.
 	var blocked []string                    // Failed restores leave earlier paths at their moved location.
 	n := 0
@@ -208,9 +221,11 @@ func undoOperations(opt *Options) error {
 		}
 		if undoDependsOn(op, blocked) {
 			log.Errorf("  [SKIPPED] %s -> %s: an enclosing path could not be restored", op.target, op.source)
+			// Skipping this restore also blocks earlier moves that need its source.
+			blocked = append(blocked, op.source)
 			continue
 		}
-		err := protectWorkingDirectory(op.target, op.source)
+		err := validateDirectoryMove(op.target, op.source)
 		if err == nil {
 			var exists bool
 			exists, err = targetExists(op.target, op.source)
@@ -244,18 +259,46 @@ func undoOperations(opt *Options) error {
 	if !opt.Quiet {
 		log.Infof("%d path(s) renamed back in %.3f seconds", n, time.Since(started).Seconds())
 	}
-	if firstErr == nil {
-		return os.Remove(opt.LastOpDetailFile)
+	if n == 0 {
+		return firstErr
 	}
-	if n > 0 {
-		remaining := make([]operation, 0, len(history)-n)
-		for i, op := range history {
-			if !completed[i] {
-				remaining = append(remaining, op)
+	// Compact the reserved file without first releasing its allocated space.
+	// The remaining records use the same encoding and cannot exceed its size.
+	var offset int64
+	if quoted {
+		offset = int64(len(historyHeader) + 1)
+	}
+	if _, err := journal.Seek(offset, io.SeekStart); err != nil {
+		return fmt.Errorf("saving remaining undo operations: %w", err)
+	}
+	for i, op := range history {
+		if !completed[i] {
+			if err := writeHistoryRecord(journal, op, quoted); err != nil {
+				return fmt.Errorf("saving remaining undo operations: %w", err)
 			}
 		}
-		if err := writeHistory(opt.LastOpDetailFile, remaining); err != nil {
-			return fmt.Errorf("%v; saving remaining undo operations: %w", firstErr, err)
+	}
+	end, err := journal.Seek(0, io.SeekCurrent)
+	if err == nil {
+		err = journal.Truncate(end)
+	}
+	if err != nil {
+		return fmt.Errorf("saving remaining undo operations: %w", err)
+	}
+	keepJournal = true
+	err = journal.Close()
+	if err == nil {
+		err = os.Rename(journal.Name(), opt.LastOpDetailFile)
+	}
+	if err != nil {
+		return fmt.Errorf("saving remaining undo operations: %w; recovery log: %s", err, journal.Name())
+	}
+	keepJournal = false
+	if firstErr == nil {
+		// Publish an empty log before removing it so a removal error cannot
+		// cause a later invocation to replay already completed operations.
+		if err := os.Remove(opt.LastOpDetailFile); err != nil {
+			return err
 		}
 	}
 	return firstErr
