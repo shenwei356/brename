@@ -1,6 +1,19 @@
+# Changelog
+
 - v2.14.1
     - flag `-N/--nature-sort` is applied to files to be renamed, rather than just for listing files. [#36](https://github.com/shenwei356/brename/issues/36)
     - fix: correct ExcludeFilters option assignment. by @mazkev [#41](https://github.com/shenwei356/brename/pull/41)
+    - fix: detect conflicting targets through absolute, relative, and symlinked directory paths, and protect dangling symlinks from unintended overwrites.
+    - fix: prevent renaming the working directory or its ancestors and reject unsafe undo log paths.
+    - fix: preserve completed rename operations after failures, check file operation and history write errors, and keep the previous log if no rename succeeds.
+    - fix: prevent undo from overwriting existing paths; retain failed operations for retry and return a nonzero status after failed forced undo.
+    - fix: keep `.brename_detail.txt` and the existing record format for ordinary filenames; use escaping only when required and continue to read existing logs.
+    - fix: honor dry run for undo and history removal.
+    - fix: handle explicit current/parent directories, trailing path separators, and file arguments with `--only-dir` correctly.
+    - fix: apply skip and exclude filters to recursive traversal without letting include filters hide matching files in subdirectories.
+    - fix: inspect file metadata without reading file contents, avoiding large-file allocations and blocking on named pipes.
+    - fix: remove a data race when listing absolute paths and reject truncated or corrupt gzip key-value files.
+    - add command-level regression tests and synchronize command help in the README.
 - v2.14.0
     - **setting default value of `-v/--verbose` as 2, which make the output more concise**. [#31](https://github.com/shenwei356/brename/issues/31)
     - output format changed.

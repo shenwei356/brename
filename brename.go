@@ -22,10 +22,12 @@ package main
 
 import (
 	"bufio"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -34,10 +36,10 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
-	"github.com/shenwei356/breader"
 	"github.com/shenwei356/go-logging"
 	"github.com/shenwei356/natsort"
 	"github.com/shenwei356/util/pathutil"
+	"github.com/shenwei356/xopen"
 	"github.com/spf13/cobra"
 )
 
@@ -118,6 +120,7 @@ func getOptions(cmd *cobra.Command) *Options {
 	if undo || forceUndo {
 		return &Options{
 			Undo:             true, // set it true even only force-undo given
+			DryRun:           dryrun,
 			Quiet:            quiet,
 			ForceUndo:        forceUndo,
 			LastOpDetailFile: LastOpDetailFile,
@@ -128,6 +131,8 @@ func getOptions(cmd *cobra.Command) *Options {
 	if clearLastOpDetailFiles {
 		return &Options{
 			ClearOpDetailFiles: true,
+			DryRun:             dryrun,
+			MaxDepth:           getFlagNonNegativeInt(cmd, "max-depth"),
 			Quiet:              quiet,
 			LastOpDetailFile:   LastOpDetailFile,
 			Recursive:          getFlagBool(cmd, "recursive"),
@@ -327,7 +332,7 @@ func getOptions(cmd *cobra.Command) *Options {
 					log.Warning()
 					log.Warning("The flag -w/--case-insensitive-path is switched on Windows by default, ")
 					log.Warning("where the path is case-insensitive in file systems like FAT32 and NTFS.")
-					log.Warning("If you are using a file system in which paths are case-insensitive,")
+					log.Warning("If you are using a file system in which paths are case-sensitive,")
 					log.Warning("please use -W/--case-sensitive-path.")
 					log.Warning()
 				}
@@ -336,7 +341,7 @@ func getOptions(cmd *cobra.Command) *Options {
 				if !quiet && verbose <= 1 {
 					log.Info()
 					log.Info("You've switched on the flag -W/--case-sensitive-path, which means")
-					log.Info("you believe that the paths are case-insensitive.")
+					log.Info("you believe that the paths are case-sensitive.")
 					log.Info()
 				}
 			}
@@ -463,17 +468,17 @@ func init() {
 	RootCmd.Flags().BoolP("quiet", "q", false, "be quiet, do not show any information and warning")
 	RootCmd.Flags().IntP("verbose", "v", 2, "verbose level (0 for all, 1 for warning, error and renamed files, 2 for only error and renamed files)")
 	RootCmd.Flags().BoolP("version", "V", false, "print version information and check for update")
-	RootCmd.Flags().BoolP("dry-run", "d", false, "print rename operations but do not run")
+	RootCmd.Flags().BoolP("dry-run", "d", false, "preview rename, undo, or history removal without changing files")
 
 	RootCmd.Flags().StringP("pattern", "p", "", "search pattern (regular expression)")
 	RootCmd.Flags().StringP("replacement", "r", "", `replacement. capture variables supported.  e.g. $1 or ${1} (prefered) represents the first submatch. ATTENTION: for *nix OS, use SINGLE quote NOT double quotes or use the \ escape character. Ascending integer is also supported by "{nr}"`)
 	RootCmd.Flags().BoolP("recursive", "R", false, "rename recursively")
 	RootCmd.Flags().BoolP("including-dir", "D", false, "rename directories")
 	RootCmd.Flags().BoolP("only-dir", "", false, "only rename directories")
-	RootCmd.Flags().IntP("max-depth", "", 0, "maximum depth for recursive search (0 for no limit)")
+	RootCmd.Flags().IntP("max-depth", "", 0, "maximum depth for recursive search or --clear (0 for no limit)")
 	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case of -p/--pattern, -f/--include-filters and -F/--exclude-filters")
 	RootCmd.Flags().BoolP("ignore-ext", "e", false, "ignore file extension. i.e., replacement does not change file extension")
-	RootCmd.Flags().BoolP("ignore-err", "E", false, "ignore director reading errors")
+	RootCmd.Flags().BoolP("ignore-err", "E", false, "ignore directory reading errors")
 
 	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'`)
 	RootCmd.Flags().StringSliceP("skip-filters", "S", []string{`^\.`}, `skip file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -S "^\." for skipping files starting with a dot, but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'`)
@@ -497,10 +502,10 @@ func init() {
 	RootCmd.Flags().BoolP("case-insensitive-path", "w", false, "the file system (e.g., FAT32 or NTFS) is case-insensitive. It's automatically swiched on on Windows")
 	RootCmd.Flags().BoolP("case-sensitive-path", "W", false, "believing that the file system is case-sensitive. Please use this to disable the flag -w/--case-insensitive-path, which is switched on by default on Windows")
 
-	RootCmd.Flags().BoolP("undo", "u", false, "undo the LAST successful operation")
-	RootCmd.Flags().BoolP("force-undo", "U", false, "continue undo even when some operations failed")
+	RootCmd.Flags().BoolP("undo", "u", false, "undo the last rename operation; retain failed entries for retry")
+	RootCmd.Flags().BoolP("force-undo", "U", false, "continue undo after failures without overwriting existing paths")
 	RootCmd.Flags().BoolP("disable-undo", "x", false, "do not create .brename_detail.txt file for undo")
-	RootCmd.Flags().BoolP("clear", "", false, `remove all .brename_detail.txt" file, you may need to add -R/--recursive to recursively clear all files in the given path`)
+	RootCmd.Flags().BoolP("clear", "", false, `remove .brename_detail.txt files; use -R/--recursive to include subdirectories`)
 
 	RootCmd.Example = `  1. dry run and showing potential dangerous operations (-d)
       brename -p "abc" -d
@@ -521,7 +526,7 @@ func init() {
       brename -p ".+" -r "{nr}" -f .mkv -f .mp4 -e
   9. only list paths that match pattern (-l)
       brename -i -f '.docx?$' -p . -R -l
-  10. undo the LAST successful operation (-u)
+  10. undo the last rename operation; retain failed entries for retry (-u)
       brename -u
   11. disable undo if you do not want to create .brename_detail.txt (-x)
       brename -p xxx -r yyy -x
@@ -534,7 +539,7 @@ func init() {
 
 	RootCmd.SetUsageTemplate(`Usage:{{if .Runnable}}
   {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
-  {{.CommandPath}} [command]{{end}} {{if gt (len .Aliases) 0}}
+  {{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
 
 Aliases:
   {{.NameAndAliases}}{{end}}{{if .HasExample}}
@@ -574,24 +579,14 @@ func checkError(err error) {
 	}
 }
 
+// getFileList preserves explicit search roots and removes trailing separators.
 func getFileList(args []string) []string {
-	files := []string{}
 	if len(args) == 0 {
-		files = append(files, "./")
-	} else {
-		for _, file := range args {
-			if file == "./" || file == "." || file == ".." {
-				continue
-			}
-			if _, err := os.Stat(file); os.IsNotExist(err) {
-				log.Errorf("given search paths not existed: %s", file)
-			}
-
-			files = append(files, file)
-		}
-		if len(args) == 0 {
-			files = append(files, "./")
-		}
+		return []string{"."}
+	}
+	files := make([]string, 0, len(args))
+	for _, path := range args {
+		files = append(files, filepath.Clean(path))
 	}
 	return files
 }
@@ -672,15 +667,17 @@ Warnings:
      -w/--case-insensitive-path to correctly check file overwrites.
   2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
-  3. New paths ending with periods of spaces, being error-prone, are not allowed.
+  3. New paths ending with periods or spaces, being error-prone, are not allowed.
+  4. Undo refuses to overwrite existing paths. Contents overwritten with -o 1 cannot be recovered.
+  5. Renaming the working directory or its ancestors is not allowed.
 
 Three path filters:
 
   1. -S/--skip-filters       black list     default value: ^\. (skipping paths starting with ".")
   2. -F/--exclude-filters    black list     no default value
   3. -f/--include-filters    white list     default value: .   (anything)
-  
-  Notes: 
+
+  Notes:
   1. Paths starting with "." are ignored by default, disable this with -S "".
   2. These options support multiple values, e.g., -f ".html" -f ".htm".
      But ATTENTION: each comma in filters is treated as a separator of multiple filters.
@@ -688,6 +685,15 @@ Three path filters:
   3. The three filters are performed in order of -S, -F, -f.
   4. -F/--exclude-filters is prefered for excluding path, cause it has no default value.
      Setting -S/--skip-filters will overwrite its default value.
+  5. Skip and exclude filters also skip matching subdirectories during recursive search.
+     Include filters select entries to rename without stopping traversal. Explicit search roots are searched.
+
+Undo and history:
+  1. Successful moves are recorded even if a later move fails. Undo failures remain in the log for retry.
+  2. -U continues independent undo operations after failures and returns a nonzero status if any fail.
+  3. -d previews renaming, undo, and --clear without changing files. Undo preview lists recorded operations.
+  4. History stays in .brename_detail.txt. Existing logs remain readable, and ordinary filenames
+     retain the old record format. Logs with filenames requiring escaping need an updated build.
 
 
 Special replacement symbols:
@@ -733,79 +739,8 @@ Special cases of replacement string:
 
 		// ------------------------------------------------
 		// undo
-		var delimiter = "\t_shenwei356-brename_\t"
 		if opt.Undo {
-			existed, err := pathutil.Exists(opt.LastOpDetailFile)
-			checkError(err)
-			if !existed {
-				if !opt.Quiet {
-					log.Infof("no brename operation to undo")
-				}
-				return
-			}
-
-			history := make([]operation, 0, 1000)
-
-			fn := func(line string) (interface{}, bool, error) {
-				line = strings.TrimRight(line, "\n")
-				if line == "" || line[0] == '#' { // ignoring blank line and comment line
-					return "", false, nil
-				}
-				items := strings.Split(line, delimiter)
-				if len(items) != 2 {
-					return items, false, nil
-				}
-				return operation{source: items[0], target: items[1], code: 0}, true, nil
-			}
-
-			var reader *breader.BufferedReader
-			reader, err = breader.NewBufferedReader(opt.LastOpDetailFile, 2, 100, fn)
-			checkError(err)
-
-			var op operation
-			for chunk := range reader.Ch {
-				checkError(chunk.Err)
-				for _, data := range chunk.Data {
-					op = data.(operation)
-					history = append(history, op)
-				}
-			}
-			if len(history) == 0 {
-				if !opt.Quiet {
-					log.Infof("no brename operation to undo")
-				}
-				return
-			}
-
-			n := 0
-			if !opt.Quiet {
-				log.Infof(bold("Renaming paths back..."))
-				log.Info()
-			}
-			for i := len(history) - 1; i >= 0; i-- {
-				op = history[i]
-
-				err = os.Rename(op.target, op.source)
-				if err != nil {
-					log.Errorf(`  [%s] %s -> %s: %s`, red("ERROR"), op.source, op.target, err)
-					if !opt.ForceUndo {
-						if !opt.Quiet {
-							log.Infof("%d path(s) renamed back in %.3f seconds", n, time.Since(timeStart).Seconds())
-						}
-						os.Exit(1)
-					}
-				}
-				n++
-				if !opt.Quiet {
-					log.Infof("  [%s] %s -> %s", green("DONE"), op.target, op.source)
-				}
-			}
-			if !opt.Quiet {
-				log.Info()
-				log.Infof("%d path(s) renamed back in %.3f seconds", n, time.Since(timeStart).Seconds())
-			}
-
-			checkError(os.Remove(opt.LastOpDetailFile))
+			checkError(undoOperations(opt))
 			return
 		}
 
@@ -817,10 +752,11 @@ Special cases of replacement string:
 
 		var hasErr bool
 		var n, nErr int
-		var outPath string
 		var err error
 
 		go func() {
+			var outPath string
+			var err error // Output errors belong to this goroutine.
 			first := true
 			verbose := !opt.Quiet || opt.DryRun
 			for op := range opCH {
@@ -947,50 +883,8 @@ Special cases of replacement string:
 			return
 		}
 
-		var fh *os.File
-		var bfh *bufio.Writer
-		if !opt.DisableUndo {
-			fh, err = os.Create(opt.LastOpDetailFile)
-			checkError(err)
-			bfh = bufio.NewWriter(fh)
-			defer func() {
-				checkError(bfh.Flush())
-				fh.Close()
-			}()
-		}
-
-		var n2 int
-		var targetDir string
-		var targetDirExisted bool
-		if !opt.Quiet {
-			log.Info()
-			log.Info(bold("Renaming paths..."))
-			log.Info()
-		}
-		for _, op := range ops {
-			targetDir = filepath.Dir(op.target)
-			targetDirExisted, err = pathutil.DirExists(targetDir)
-			if err != nil {
-				log.Errorf(`  [%s] %s -> %s`, red("ERROR"), op.source, op.target)
-				os.Exit(1)
-			}
-			if !targetDirExisted {
-				os.MkdirAll(targetDir, 0755)
-			}
-
-			err = os.Rename(op.source, op.target)
-			if err != nil {
-				log.Errorf(`  [%s] %s -> %s: %s`, red("ERROR"), op.source, op.target, err)
-				os.Exit(1)
-			}
-			if !opt.Quiet {
-				log.Infof("  [%s] %s -> %s", green("DONE"), op.source, op.target)
-			}
-			if !opt.DisableUndo {
-				bfh.WriteString(fmt.Sprintf("%s%s%s\n", op.source, delimiter, op.target))
-			}
-			n2++
-		}
+		n2, err := executeOperations(opt, ops)
+		checkError(err)
 
 		if !opt.Quiet {
 			log.Info()
@@ -1049,6 +943,7 @@ func (op operation) String() string {
 
 // checkOperation checks an renaming operation
 func checkOperation(opt *Options, path string) (bool, operation) {
+	path = filepath.Clean(path)
 	dir, filename := filepath.Split(path)
 	var ext string
 	if opt.IgnoreExt {
@@ -1110,22 +1005,18 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		return true, operation{path, target, codeUnchanged}
 	}
 
-	if runtime.GOOS == "windows" {
-		if _, err := os.Stat(target); err == nil {
-			if strings.EqualFold(target, path) { //  rename
-			} else { // overwrite existed file
-				return true, operation{path, target, codeExisted}
-			}
-		}
-	} else {
-		if _, err := os.Stat(target); err == nil {
-			return true, operation{path, target, codeExisted}
-		}
+	checkError(protectWorkingDirectory(path, target))
+	exists, err := targetExists(path, target)
+	checkError(err)
+	if exists {
+		return true, operation{path, target, codeExisted}
 	}
 
-	target2 := target
+	// Resolve directory aliases, but keep the final directory entry itself.
+	target2, err := pathKey(target)
+	checkError(err)
 	if opt.PathCaseInsensitive {
-		target2 = strings.ToLower(target)
+		target2 = strings.ToLower(target2)
 	}
 	if pathTree == nil {
 		pathTree = make(map[string]struct{}, 1024)
@@ -1138,18 +1029,22 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	return true, operation{path, target, codeOK}
 }
 
-// ignore checks if we should ignore this path
-func ignore(opt *Options, path string) bool {
-	for _, re := range opt.SkipFilterRes { // black list
-		if re.MatchString(path) {
-			return true
+// excluded controls both path exclusion and recursive directory pruning.
+func excluded(opt *Options, path string) bool {
+	for _, filters := range [][]*regexp.Regexp{opt.SkipFilterRes, opt.ExcludeFilterRes} {
+		for _, re := range filters {
+			if re.MatchString(path) {
+				return true
+			}
 		}
 	}
+	return false
+}
 
-	for _, re := range opt.ExcludeFilterRes { // black list
-		if re.MatchString(path) {
-			return true
-		}
+// ignore applies include filters after the two exclusion filters.
+func ignore(opt *Options, path string) bool {
+	if excluded(opt, path) {
+		return true
 	}
 	for _, re := range opt.IncludeFilterRes { // white list
 		if re.MatchString(path) {
@@ -1159,90 +1054,53 @@ func ignore(opt *Options, path string) bool {
 	return true
 }
 
-// clear removes all log files
+// clear removes history files without reading file contents or following links.
 func clear(opt *Options, path string, depth int) error {
 	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
 		return nil
 	}
-	_, err := os.ReadFile(path)
-	// it's a file
-	if err == nil {
-		if filepath.Base(path) == opt.LastOpDetailFile {
-			err = os.Remove(path)
-			if err == nil {
-				if !opt.Quiet {
-					log.Infof("removed: %s", path)
-				}
-			} else {
-				log.Warningf("failed to remove %s", path)
-				return err
-			}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		if filepath.Base(path) != opt.LastOpDetailFile {
+			return nil
+		}
+		if opt.DryRun {
+			log.Infof("would remove: %s", path)
+			return nil
+		}
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+		if !opt.Quiet {
+			log.Infof("removed: %s", path)
 		}
 		return nil
 	}
-
-	// it's a directory
 	files, err := os.ReadDir(path)
 	if err != nil {
-		// return fmt.Errorf("err on reading dir: %s", path)
-		return nil
+		return err
 	}
-
-	var filename string
-	_dirs := make([]string, 0, len(files))
 	for _, file := range files {
-		filename = file.Name()
-
-		if file.IsDir() {
-			_dirs = append(_dirs, filename)
-		}
-
-		if filename == opt.LastOpDetailFile {
-			file1 := filepath.Join(path, opt.LastOpDetailFile)
-			err = os.Remove(file1)
-			if err == nil {
-				if !opt.Quiet {
-					log.Infof("removed: %s", file1)
-				}
-			} else {
-				log.Warningf("failed to remove %s", file1)
+		// Never treat a directory named like the history file as a log.
+		if (!file.IsDir() && file.Name() == opt.LastOpDetailFile) || (file.IsDir() && opt.Recursive) {
+			nextDepth := depth
+			if file.IsDir() {
+				nextDepth++
 			}
-		}
-	}
-
-	// sub directory
-	for _, filename := range _dirs {
-		fileFullPath := filepath.Join(path, filename)
-		if opt.Recursive {
-			err := clear(opt, fileFullPath, depth+1)
-			if err != nil {
+			if err := clear(opt, filepath.Join(path, file.Name()), nextDepth); err != nil {
 				return err
 			}
 		}
 	}
-
-	if depth > 1 {
-		return nil
-	}
-
-	// check the given root directory
-	file1 := filepath.Join(path, opt.LastOpDetailFile)
-	if _, err = os.Stat(file1); err == nil {
-		err = os.Remove(file1)
-		if err == nil {
-			if !opt.Quiet {
-				log.Infof("removed: %s", file1)
-			}
-		} else {
-			log.Warningf("failed to remove %s", file1)
-		}
-	}
-
 	return nil
 }
 
 // walk recursively search file to rename
 func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
+	path = filepath.Clean(path)
 	if opt.MaxDepth > 0 && depth > opt.MaxDepth {
 		return nil
 	}
@@ -1255,10 +1113,20 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 		fmt.Fprintf(os.Stderr, "\r  %-78s", _path)
 	}
 
-	_, err := os.ReadFile(path)
-	// it's a file
-	if err == nil {
-		if ignore(opt, filepath.Base(path)) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	// Preserve explicit directory-link search roots. Links encountered inside a
+	// directory remain file entries and are never followed by recursive search.
+	if depth == 1 && info.Mode()&os.ModeSymlink != 0 {
+		if target, err := os.Stat(path); err == nil && target.IsDir() {
+			info = target
+		}
+	}
+	// Directory entries can be renamed without opening their contents.
+	if !info.IsDir() {
+		if opt.OnlyDir || ignore(opt, filepath.Base(path)) {
 			return nil
 		}
 		if ok, op := checkOperation(opt, path); ok {
@@ -1275,9 +1143,9 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 		}
 		if !opt.IgnoreErr {
 			return fmt.Errorf("  %s when reading dir: %s, you can use -E/--ignore-err to skip this", red("error detected"), path)
-		} else {
-			log.Warningf("  %s when reading dir: %s", yellow("err ignored"), path)
 		}
+		log.Warningf("  %s when reading dir: %s", yellow("err ignored"), path)
+		return nil
 	}
 
 	var filename string
@@ -1317,7 +1185,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 		natsort.Sort(_dirs)
 	}
 	for _, filename := range _dirs {
-		if (opt.OnlyDir || opt.IncludingDir) && ignore(opt, filename) {
+		if excluded(opt, filename) {
 			continue
 		}
 
@@ -1341,7 +1209,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	}
 
 	// rename the given root directory
-	if (opt.OnlyDir || opt.IncludingDir) && !ignore(opt, path) {
+	if (opt.OnlyDir || opt.IncludingDir) && !ignore(opt, filepath.Base(path)) {
 		if ok, op := checkOperation(opt, path); ok {
 			opCh <- op
 		}
@@ -1351,36 +1219,110 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 }
 
 // readKVs reads a tab-delimited file containing key-value pairs
-func readKVs(file string, ignoreCase bool) (map[string]string, error) {
-	type KV [2]string
-	fn := func(line string) (interface{}, bool, error) {
-		line = strings.TrimRight(line, "\r\n")
-		if len(line) == 0 {
-			return nil, false, nil
-		}
-		items := strings.Split(line, "\t")
-		if len(items) < 2 {
-			return nil, false, nil
-		}
-		if ignoreCase {
-			return KV([2]string{strings.ToLower(items[0]), items[1]}), true, nil
-		}
-		return KV([2]string{items[0], items[1]}), true, nil
+func readKVs(file string, ignoreCase bool) (kvs map[string]string, err error) {
+	kvs = make(map[string]string)
+	reader, closeInput, err := openKVInput(file)
+	if err == xopen.ErrNoContent {
+		return kvs, nil
 	}
-	kvs := make(map[string]string)
-	reader, err := breader.NewBufferedReader(file, 2, 10, fn)
 	if err != nil {
-		return kvs, err
+		return nil, err
 	}
-	var items KV
-	for chunk := range reader.Ch {
-		if chunk.Err != nil {
-			return kvs, err
+	defer func() {
+		if closeErr := closeInput(); err == nil {
+			err = closeErr
 		}
-		for _, data := range chunk.Data {
-			items = data.(KV)
-			kvs[items[0]] = items[1]
+	}()
+	for {
+		line, readErr := reader.ReadString('\n')
+		// A truncated or corrupt compressed stream must never supply a partial map.
+		if readErr != nil && readErr != io.EOF {
+			return nil, readErr
+		}
+		items := strings.SplitN(strings.TrimRight(line, "\r\n"), "\t", 3)
+		if len(items) >= 2 {
+			key := items[0]
+			if ignoreCase {
+				key = strings.ToLower(key)
+			}
+			kvs[key] = items[1]
+		}
+		if readErr == io.EOF {
+			return kvs, nil
 		}
 	}
-	return kvs, nil
+}
+
+// openKVInput retains compressed files, stdin, URLs and command inputs. Gzip
+// uses the standard reader because the old pgzip dependency accepts a missing
+// trailer as EOF. Keep the existing Go version requirement for this fix.
+func openKVInput(file string) (*bufio.Reader, func() error, error) {
+	var raw io.Reader
+	var closeSource func() error
+	switch {
+	case file == "-":
+		raw = os.Stdin
+		closeSource = func() error { return nil }
+	case strings.HasPrefix(file, "|"):
+		args := strings.Fields(file[1:])
+		if len(args) == 0 {
+			return nil, nil, fmt.Errorf("empty key-value input command")
+		}
+		cmd := exec.Command(args[0], args[1:]...)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := cmd.Start(); err != nil {
+			stdout.Close()
+			return nil, nil, err
+		}
+		raw = stdout
+		closeSource = func() error {
+			closeErr := stdout.Close()
+			if err := cmd.Wait(); err != nil {
+				return err
+			}
+			return closeErr
+		}
+	default:
+		var err error
+		raw, err = xopen.XReader(file)
+		if err != nil {
+			return nil, nil, err
+		}
+		closeSource = raw.(io.Closer).Close
+	}
+	buffer := bufio.NewReader(raw)
+	magic, _ := buffer.Peek(2)
+	isGzip := len(magic) == 2 && magic[0] == 0x1f && magic[1] == 0x8b
+	var decoded io.ReadCloser
+	var err error
+	if isGzip {
+		decoded, err = gzip.NewReader(buffer)
+	} else {
+		decoded, err = xopen.Buf(buffer)
+	}
+	if err != nil {
+		if closeErr := closeSource(); err == xopen.ErrNoContent && closeErr != nil {
+			err = closeErr
+		}
+		return nil, nil, err
+	}
+	closeInput := func() error {
+		decodeErr := decoded.Close()
+		sourceErr := closeSource()
+		if decodeErr != nil {
+			return decodeErr
+		}
+		return sourceErr
+	}
+	reader := bufio.NewReader(decoded)
+	// xopen handles a BOM itself; match that behavior for the standard gzip reader.
+	if isGzip {
+		if bom, _ := reader.Peek(3); string(bom) == "\xef\xbb\xbf" {
+			reader.Discard(3)
+		}
+	}
+	return reader, closeInput, nil
 }

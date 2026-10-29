@@ -50,7 +50,7 @@
 
     <img src="screenshot/dry-run.png" width="700"/>
 
-- **Supporting Undo** the LAST successful operation, like a time machine.
+- **Supporting Undo** for the last rename operation, including completed moves from a failed run.
 
     <img src="screenshot/undo.png" width="700"/>
 
@@ -156,7 +156,7 @@ And then:
 
 brename: a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.14.0
+Version: 2.14.1
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -167,7 +167,9 @@ Warnings:
      -w/--case-insensitive-path to correctly check file overwrites.
   2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
-  3. New paths ending with periods of spaces, being error-prone, are not allowed.
+  3. New paths ending with periods or spaces, being error-prone, are not allowed.
+  4. Undo refuses to overwrite existing paths. Contents overwritten with -o 1 cannot be recovered.
+  5. Renaming the working directory or its ancestors is not allowed.
 
 Three path filters:
 
@@ -183,6 +185,15 @@ Three path filters:
   3. The three filters are performed in order of -S, -F, -f.
   4. -F/--exclude-filters is prefered for excluding path, cause it has no default value.
      Setting -S/--skip-filters will overwrite its default value.
+  5. Skip and exclude filters also skip matching subdirectories during recursive search.
+     Include filters select entries to rename without stopping traversal. Explicit search roots are searched.
+
+Undo and history:
+  1. Successful moves are recorded even if a later move fails. Undo failures remain in the log for retry.
+  2. -U continues independent undo operations after failures and returns a nonzero status if any fail.
+  3. -d previews renaming, undo, and --clear without changing files. Undo preview lists recorded operations.
+  4. History stays in .brename_detail.txt. Existing logs remain readable, and ordinary filenames
+     retain the old record format. Logs with filenames requiring escaping need an updated build.
 
 
 Special replacement symbols:
@@ -198,7 +209,7 @@ Special cases of replacement string:
     b). If followed by numbers, characters, or underscore. That is ambiguous:
             -r '$1abc' actually refers to the variable '1abc', please use '${1}abc'.
             -r '$2_$1' actually refers to the variable '2_', please use '${2}_${1}'.
-  2. Want to replace with a character '$',
+  2. Want to replace with a charactor '$',
     a). If using '{kv}', you need use '$$$$' instead of a single '$':
             -r '{kv}' -k <(sed 's/\$/$$$$/' kv.txt)
     b). If not, use '$$'. e.g., adding '$' to all numbers:
@@ -227,7 +238,7 @@ Examples:
       brename -p ".+" -r "{nr}" -f .mkv -f .mp4 -e
   9. only list paths that match pattern (-l)
       brename -i -f '.docx?$' -p . -R -l
-  10. undo the LAST successful operation (-u)
+  10. undo the last rename operation; retain failed entries for retry (-u)
       brename -u
   11. disable undo if you do not want to create .brename_detail.txt (-x)
       brename -p xxx -r yyy -x
@@ -244,19 +255,19 @@ Flags:
   -W, --case-sensitive-path       believing that the file system is case-sensitive. Please use this to
                                   disable the flag -w/--case-insensitive-path, which is switched on by
                                   default on Windows
-      --clear                     remove all .brename_detail.txt" file, you may need to add
-                                  -R/--recursive to recursively clear all files in the given path
+      --clear                     remove .brename_detail.txt files; use -R/--recursive to include
+                                  subdirectories
   -x, --disable-undo              do not create .brename_detail.txt file for undo
-  -d, --dry-run                   print rename operations but do not run
+  -d, --dry-run                   preview rename, undo, or history removal without changing files
   -F, --exclude-filters strings   exclude file filter(s) (regular expression, NOT wildcard). multiple
                                   values supported, e.g., -F ".html" -F ".htm", but ATTENTION: each
                                   comma in the filter is treated as the separator of multiple filters,
                                   please use double quotation marks for patterns containing comma, e.g.,
                                   -p '"A{2,}"'
-  -U, --force-undo                continue undo even when some operations failed
+  -U, --force-undo                continue undo after failures without overwriting existing paths
   -h, --help                      help for brename
   -i, --ignore-case               ignore case of -p/--pattern, -f/--include-filters and -F/--exclude-filters
-  -E, --ignore-err                ignore director reading errors
+  -E, --ignore-err                ignore directory reading errors
   -e, --ignore-ext                ignore file extension. i.e., replacement does not change file extension
   -f, --include-filters strings   include file filter(s) (regular expression, NOT wildcard). multiple
                                   values supported, e.g., -f ".html" -f ".htm", but ATTENTION: each
@@ -272,8 +283,8 @@ Flags:
   -l, --list                      only list paths that match pattern
   -a, --list-abs                  list absolute path, using along with -l/--list
   -s, --list-sep string           separator for list of found paths (default "\n")
-      --max-depth int             maximum depth for recursive search (0 for no limit)
-  -N, --nature-sort               list paths in nature sort, using along with -l/--list
+      --max-depth int             maximum depth for recursive search or --clear (0 for no limit)
+  -N, --nature-sort               sort paths in nature order for renaming or listing
       --nr-width int              minimum width for {nr} in flag -r/--replacement. e.g., formating "1"
                                   to "001" by --nr-width 3 (default 1)
       --only-dir                  only rename directories
@@ -292,11 +303,10 @@ Flags:
                                   separator of multiple filters, please use double quotation marks for
                                   patterns containing comma, e.g., -p '"A{2,}"' (default [^\.])
   -n, --start-num int             starting number when using {nr} in replacement (default 1)
-  -u, --undo                      undo the LAST successful operation
+  -u, --undo                      undo the last rename operation; retain failed entries for retry
   -v, --verbose int               verbose level (0 for all, 1 for warning, error and renamed files, 2
                                   for only error and renamed files) (default 2)
   -V, --version                   print version information and check for update
-
 ```
 
 
@@ -353,7 +363,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         └── b.jpg
 
 
-1. **Undo** the LAST successful operation, yes it's COOL! (`-u/--undo`, `-U/--force-undo`)
+1. **Undo** the last rename operation (`-u/--undo`, `-U/--force-undo`)
     
         $ brename -u
         Renaming paths back...
@@ -363,6 +373,24 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
         2 path(s) renamed back in 0.000 seconds
         
+   Undo refuses to overwrite files created at their old names. If an operation fails,
+   its record remains in the log so you can resolve the conflict and retry. `-U`
+   continues independent operations after failures and returns a nonzero exit status
+   if any operation fails. It does not enable overwriting.
+
+   Use `brename -u -d` to list recorded undo operations without changing files.
+   `brename --clear -d -R` previews history removal. Undo cannot recover contents
+   overwritten with `-o 1`.
+
+   History remains in `.brename_detail.txt`. Existing logs are still readable, and
+   ordinary filenames retain the old record format, which older versions can read.
+   Only logs containing filenames that need escaping use a versioned format; these
+   require an updated build. Temporary writes use `.brename_detail.txt.tmp-*` and
+   replace the history file only after writing succeeds.
+
+   Undo logs must be regular files and must not alias files being renamed. Do not run
+   concurrent rename operations against the same paths or history file.
+
    Disable undo if you do not want to create `.brename_detail.txt` (`-x`)
    
         $ brename -p xxx -r yyy -x
@@ -373,7 +401,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
     
 1. Dry run, only showing operations that will cause error (just remove `-d`).
 
-        # default value of -v is 0
+        # default value of -v is 2
         $ brename -p a -r b -R -D -d
         Searching for paths to rename...
 
@@ -531,7 +559,9 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         
 1. Skipping files via skip filter (regular expression) (`-S/--skip-filters`). This filter step is performed before the exclude filters.
   The default value `^\.` is for skipping files starting with dot, which are hidden configuration files in Linux.
-  If you do not want to skip these paths, just empty it.
+  Matching subdirectories are also skipped during recursive search, even without `-D`.
+  Include filters select files and directories to rename without pruning subdirectories.
+  Explicit search roots are searched. If you do not want to skip hidden entries, just empty it.
   
         $ brename -p xxx -r yyy -S ""
 

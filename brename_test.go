@@ -1,10 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCodeString(t *testing.T) {
@@ -233,5 +241,212 @@ func TestIgnore_FilterPrecedence(t *testing.T) {
 	// File not in IncludeFilterRes should be ignored
 	if !ignore(opt, "other.csv") {
 		t.Errorf("expected other.csv to be ignored")
+	}
+}
+
+// TestCLIProcess runs the actual command in a child process, including exit paths.
+func TestCLIProcess(t *testing.T) {
+	if os.Getenv("BRENAME_TEST_HELPER") != "1" {
+		return
+	}
+	for i, arg := range os.Args {
+		if arg == "--" {
+			RootCmd.SetArgs(os.Args[i+1:])
+			main()
+			os.Exit(0)
+		}
+	}
+	os.Exit(2)
+}
+
+// runCLI isolates flags, global state and filesystem changes for command tests.
+func runCLI(t *testing.T, dir string, args ...string) (string, error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[0], append([]string{"-test.run=^TestCLIProcess$", "--"}, args...)...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "BRENAME_TEST_HELPER=1", "GORACE=atexit_sleep_ms=0")
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		t.Fatalf("command timed out: %v\n%s", args, out)
+	}
+	return string(out), err
+}
+
+// writeTestFile creates fixture contents without invoking the command under test.
+func writeTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// requireFile checks contents as well as existence to catch unintended overwrites.
+func requireFile(t *testing.T, path, want string) {
+	t.Helper()
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != want {
+		t.Fatalf("%s: content %q, error %v; want %q", path, got, err, want)
+	}
+}
+
+func TestCLIExplicitPaths(t *testing.T) {
+	for _, root := range []string{".", "./", ".."} {
+		t.Run(root, func(t *testing.T) {
+			dir := t.TempDir()
+			cwd := dir
+			if root == ".." {
+				cwd = filepath.Join(dir, "child")
+				if err := os.Mkdir(cwd, 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			writeTestFile(t, filepath.Join(dir, "a"), "original")
+			if out, err := runCLI(t, cwd, "-p", "^a$", "-r", "b", root); err != nil {
+				t.Fatalf("%v: %s", err, out)
+			}
+			requireFile(t, filepath.Join(dir, "b"), "original")
+		})
+	}
+	t.Run("trailing separator", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.Mkdir(filepath.Join(dir, "foo"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if out, err := runCLI(t, dir, "-D", "-p", "foo", "-r", "bar", "foo"+string(os.PathSeparator)); err != nil {
+			t.Fatalf("%v: %s", err, out)
+		}
+		if info, err := os.Stat(filepath.Join(dir, "bar")); err != nil || !info.IsDir() {
+			t.Fatalf("directory not renamed: %v", err)
+		}
+	})
+	t.Run("only directories", func(t *testing.T) {
+		dir := t.TempDir()
+		writeTestFile(t, filepath.Join(dir, "a"), "original")
+		if out, err := runCLI(t, dir, "--only-dir", "-p", "a", "-r", "b", "a"); err != nil {
+			t.Fatalf("%v: %s", err, out)
+		}
+		requireFile(t, filepath.Join(dir, "a"), "original")
+	})
+}
+
+func TestCLIRecursiveFilters(t *testing.T) {
+	for _, includeDirs := range []bool{false, true} {
+		t.Run(fmt.Sprint(includeDirs), func(t *testing.T) {
+			dir := t.TempDir()
+			for _, name := range []string{"sub", ".hidden", "excluded"} {
+				if err := os.Mkdir(filepath.Join(dir, name), 0700); err != nil {
+					t.Fatal(err)
+				}
+				writeTestFile(t, filepath.Join(dir, name, "a.txt"), name)
+			}
+			args := []string{"-R", "-f", `\.txt$`, "-F", "^excluded$", "-p", "a", "-r", "b"}
+			if includeDirs {
+				args = append(args, "-D")
+			}
+			if out, err := runCLI(t, dir, args...); err != nil {
+				t.Fatalf("%v: %s", err, out)
+			}
+			requireFile(t, filepath.Join(dir, "sub", "b.txt"), "sub")
+			requireFile(t, filepath.Join(dir, ".hidden", "a.txt"), ".hidden")
+			requireFile(t, filepath.Join(dir, "excluded", "a.txt"), "excluded")
+			if out, err := runCLI(t, dir, "-R", "-S", "", "-p", "^a", "-r", "b"); err != nil {
+				t.Fatalf("%v: %s", err, out)
+			}
+			requireFile(t, filepath.Join(dir, ".hidden", "b.txt"), ".hidden")
+		})
+	}
+}
+
+func TestCLIListAbsConcurrent(t *testing.T) {
+	dir := t.TempDir()
+	const count = 1800 // Exceed the operation channel's capacity to exercise both goroutines.
+	for i := 0; i < count; i++ {
+		writeTestFile(t, filepath.Join(dir, fmt.Sprintf("f%04d", i)), "")
+	}
+	out, err := runCLI(t, dir, "-l", "-a", "-p", ".")
+	if err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != count {
+		t.Fatalf("got %d paths, want %d", len(lines), count)
+	}
+	for i, line := range lines {
+		if line != filepath.Join(dir, fmt.Sprintf("f%04d", i)) {
+			t.Fatalf("unexpected listed path: %q", line)
+		}
+	}
+}
+
+func TestCLIUnreadableFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permission fixture")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a")
+	writeTestFile(t, path, "original")
+	if err := os.Chmod(path, 0); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runCLI(t, dir, "-p", "a", "-r", "b", "a"); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	if err := os.Chmod(filepath.Join(dir, "b"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	requireFile(t, filepath.Join(dir, "b"), "original")
+}
+
+func TestReadKVs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kv")
+	writeTestFile(t, path, "A\tfirst\r\nignored\nA\tlast\textra\nB\tsecond")
+	kvs, err := readKVs(path, true)
+	if err != nil || len(kvs) != 2 || kvs["a"] != "last" || kvs["b"] != "second" {
+		t.Fatalf("map %v, error %v", kvs, err)
+	}
+	var compressed bytes.Buffer
+	w := gzip.NewWriter(&compressed)
+	if _, err := w.Write([]byte("a\tb\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, corrupt := range []bool{false, true} {
+		data := append([]byte(nil), compressed.Bytes()...)
+		if corrupt {
+			data = data[:len(data)-8]
+		}
+		if err := os.WriteFile(path, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		kvs, err = readKVs(path, false)
+		if corrupt && err == nil {
+			t.Fatal("accepted truncated gzip")
+		}
+		if !corrupt && (err != nil || kvs["a"] != "b") {
+			t.Fatalf("map %v, error %v", kvs, err)
+		}
+	}
+	writeTestFile(t, filepath.Join(dir, "a"), "original")
+	if out, err := runCLI(t, dir, "-p", "^(a)$", "-r", "{kv}", "-k", "kv", "a"); err == nil {
+		t.Fatalf("accepted corrupt mapping: %s", out)
+	}
+	requireFile(t, filepath.Join(dir, "a"), "original")
+}
+
+func TestCLINaturalNumbering(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"f1", "f2", "f10"} {
+		writeTestFile(t, filepath.Join(dir, name), name)
+	}
+	if out, err := runCLI(t, dir, "-N", "-p", `f\d+`, "-r", "{nr}"); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	for i, name := range []string{"f1", "f2", "f10"} {
+		requireFile(t, filepath.Join(dir, fmt.Sprint(i+1)), name)
 	}
 }
