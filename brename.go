@@ -104,6 +104,9 @@ type Options struct {
 	seenSources map[string]struct{} // Directory entries already considered for this rename run.
 }
 
+// maxNumberWidth keeps padding within fmt's supported formatting range.
+const maxNumberWidth = 1_000_000
+
 var reNR = regexp.MustCompile(`\{(NR|nr)\}`)
 var reKV = regexp.MustCompile(`\{(KV|kv)\}`)
 
@@ -278,6 +281,12 @@ func getOptions(cmd *cobra.Command) *Options {
 		replaceWithNR = true
 	}
 
+	nrWidth := getFlagPositiveInt(cmd, "nr-width")
+	if replaceWithNR && !onlyList && nrWidth > maxNumberWidth {
+		// Excessive widths can produce fmt diagnostics instead of digits.
+		checkError(fmt.Errorf("value of flag --nr-width should not exceed %d", maxNumberWidth))
+	}
+
 	var replaceWithKV bool
 	var kvs map[string]string
 	keepKey := getFlagBool(cmd, "keep-key")
@@ -442,7 +451,7 @@ func getOptions(cmd *cobra.Command) *Options {
 
 		ReplaceWithNR: replaceWithNR,
 		StartNum:      getFlagNonNegativeInt(cmd, "start-num"),
-		NRFormat:      fmt.Sprintf("%%0%dd", getFlagPositiveInt(cmd, "nr-width")),
+		NRFormat:      fmt.Sprintf("%%0%dd", nrWidth),
 		ReplaceWithKV: replaceWithKV,
 
 		KVs:         kvs,
@@ -503,7 +512,7 @@ func init() {
 	RootCmd.Flags().IntP("key-capt-idx", "I", 1, "capture variable index of key (1-based)")
 	RootCmd.Flags().StringP("key-miss-repl", "m", "", "replacement for key with no corresponding value")
 	RootCmd.Flags().IntP("start-num", "n", 1, `starting number when using {nr} in replacement`)
-	RootCmd.Flags().IntP("nr-width", "", 1, `minimum width for {nr} in flag -r/--replacement. e.g., formating "1" to "001" by --nr-width 3`)
+	RootCmd.Flags().IntP("nr-width", "", 1, `minimum width for {nr} (1-1000000). e.g., format "1" as "001" with --nr-width 3`)
 
 	RootCmd.Flags().IntP("overwrite-mode", "o", 0, "overwrite mode (0 for reporting error, 1 for overwrite, 2 for not renaming) (default 0)")
 
@@ -699,14 +708,14 @@ Warnings:
      -w/--case-insensitive-path to correctly check file overwrites.
   2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
-  3. New paths ending with periods or spaces, being error-prone, are not allowed.
+  3. After path normalization, new names ending with periods or spaces are not allowed.
   4. Undo refuses to overwrite existing paths. Contents overwritten with -o 1 cannot be recovered.
   5. Renaming the working directory or its ancestors, or moving a directory into itself, is not allowed.
 
 Search paths:
   1. Overlapping inputs rename each source entry once; {nr} follows the first encounter.
      Empty path arguments are invalid; omit paths or use . for the current directory.
-  2. Moves finish before directory or symlink parents used by their paths are renamed.
+  2. Moves finish before directory or symlink parents used by their paths are renamed, including link chains.
      Moves touching the same entry retain their original order. Cyclic dependencies are rejected.
   3. -l lists matching source paths without reading key-value inputs or applying replacements.
 
@@ -729,11 +738,14 @@ Three path filters:
 
 Undo and history:
   1. Successful moves are recorded even if a later move fails. Undo failures remain in the log for retry.
+     Malformed records are rejected before any undo move.
   2. -U continues independent undo operations after failures and returns a nonzero status if any fail.
+     Paths depending on a failed restore are skipped, including through directory symlinks.
   3. -d previews renaming, undo, and --clear without changing files. Rename preview checks undo log paths;
      undo preview lists recorded operations.
   4. History stays in .brename_detail.txt. Existing logs remain readable, and ordinary filenames
      retain the old record format. Logs with filenames requiring escaping need an updated build.
+     Moves that invalidate their own directory alias use resolved paths in the log.
   5. Undo prepares a temporary recovery log before moving files; its directory must be writable.
 
 
@@ -744,6 +756,7 @@ Special replacement symbols:
           n can be specified by flag -I/--key-capt-idx (default: 1).
           Each match uses its own key. If any key is missing, the whole filename is skipped
           unless -K/--keep-key or -m/--key-miss-repl supplies a fallback.
+          -K keeps a missing key literally, including any '$' characters.
 
 Special cases of replacement string:
  *1. Capture variables should be in the format of '${1}' to reduce errors.
@@ -923,6 +936,12 @@ Special cases of replacement string:
 		}
 		needsOrdering := len(paths) > 1
 		if !needsOrdering {
+			// A single alias can traverse a directory or link renamed inside it.
+			// Postorder traversal alone cannot preserve that access path.
+			resolved, err := filepath.EvalSymlinks(paths[0])
+			needsOrdering = err == nil && resolved != paths[0]
+		}
+		if !needsOrdering {
 			// Postorder traversal already handles names within each directory;
 			// cross-directory targets may depend on another entry in the same root.
 			for _, op := range ops {
@@ -1081,11 +1100,12 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		return true, operation{path, target, codeUnchanged}
 	}
 	// Existing names can contain these characters on Unix. Only changed names
-	// are subject to the cross-platform restrictions on new paths.
-	if filename2[len(filename2)-1] == '.' {
+	// are subject to the cross-platform restrictions on new paths. Inspect the
+	// normalized target so separators cannot hide its final period or space.
+	if strings.HasSuffix(target, ".") {
 		return true, operation{path, target, codeEndingWithPeriod}
 	}
-	if filename2[len(filename2)-1] == ' ' {
+	if strings.HasSuffix(target, " ") {
 		return true, operation{path, target, codeEndingWithSpace}
 	}
 
@@ -1133,7 +1153,9 @@ func replaceWithKVs(opt *Options, filename, replacement string) (string, bool) {
 		if !ok {
 			switch {
 			case opt.KeepKey:
-				value = key
+				// Captured keys are literal filenames, not replacement templates.
+				// Escape dollars for both expansion stages below.
+				value = strings.ReplaceAll(key, "$", "$$$$")
 			case opt.KeyMissRepl != "":
 				value = opt.KeyMissRepl
 			default:

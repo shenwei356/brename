@@ -727,6 +727,9 @@ func TestReplaceWithKVsMultipleMatches(t *testing.T) {
 		{name: "captures", pattern: `([ab])(\d)`, input: "a1-b2", replacement: "{kv}_${2}", kvs: map[string]string{"a": "Alpha", "b": "Beta"}, want: "Alpha_1-Beta_2", ok: true},
 		{name: "missing key", pattern: `([ab])`, input: "a-b", replacement: "{kv}", kvs: map[string]string{"a": "Alpha"}},
 		{name: "keep key", pattern: `([ab])`, input: "a-b", replacement: "{kv}", kvs: map[string]string{"a": "Alpha"}, keep: true, want: "Alpha-b", ok: true},
+		{name: "literal dollar key", pattern: `(.+)`, input: "a$1", replacement: "new_{kv}", kvs: map[string]string{"other": "value"}, keep: true, want: "new_a$1", ok: true},
+		{name: "literal braced key", pattern: `(.+)`, input: "a${1}$$", replacement: "{kv}", kvs: map[string]string{"other": "value"}, keep: true, want: "a${1}$$", ok: true},
+		{name: "mixed literal keys", pattern: `(\$[12])`, input: "$1-$2", replacement: "{kv}", kvs: map[string]string{"$1": "First"}, keep: true, want: "First-$2", ok: true},
 		{name: "fallback", pattern: `([ab])`, input: "a-b", replacement: "{kv}", kvs: map[string]string{"a": "Alpha"}, fallback: "unknown", want: "Alpha-unknown", ok: true},
 		{name: "ignore case", pattern: `(?i)([ab])`, input: "A-b", replacement: "{kv}", kvs: map[string]string{"a": "Alpha", "b": "Beta"}, ignoreCase: true, want: "Alpha-Beta", ok: true},
 		{name: "empty matches", pattern: `()`, input: "ab", replacement: "{kv}", kvs: map[string]string{"": "X"}, want: "XaXbX", ok: true},
@@ -771,4 +774,47 @@ func TestCLIInvalidKVCommandStopsProducer(t *testing.T) {
 		t.Fatalf("expected gzip error: %v: %s", err, out)
 	}
 	requireFile(t, filepath.Join(dir, "a"), "original")
+}
+
+func TestCLINumberWidthOverflow(t *testing.T) {
+	for _, width := range []string{"100000000", strconv.Itoa(int(^uint(0) >> 1))} {
+		t.Run(width, func(t *testing.T) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "a"), "original")
+			writeTestFile(t, filepath.Join(dir, LastOpDetailFile), "previous history\n")
+			if out, err := runCLI(t, dir, "-p", "^a$", "-r", "new_{nr}", "--nr-width", width, "a"); err == nil {
+				t.Fatalf("excessive padding became a filename: %s", out)
+			}
+			requireFile(t, filepath.Join(dir, "a"), "original")
+			requireFile(t, filepath.Join(dir, LastOpDetailFile), "previous history\n")
+			// Listing does not use numeric replacement options.
+			if out, err := runCLI(t, dir, "-l", "-p", "^a$", "-r", "{nr}", "--nr-width", width, "a"); err != nil || out != "a\n" {
+				t.Fatalf("listing used numeric padding: %v: %q", err, out)
+			}
+		})
+	}
+}
+
+func TestCLIKeepKeyLiteralDollars(t *testing.T) {
+	for _, replacement := range []string{"{kv}", "new_{kv}"} {
+		t.Run(replacement, func(t *testing.T) {
+			dir := t.TempDir()
+			source := "a$1${name}$$"
+			writeTestFile(t, filepath.Join(dir, source), "original")
+			writeTestFile(t, filepath.Join(dir, "kv"), "known\tvalue\n")
+			writeTestFile(t, filepath.Join(dir, LastOpDetailFile), "previous history\n")
+			if out, err := runCLI(t, dir, "-p", "^(.+)$", "-r", replacement, "-K", "-k", "kv", source); err != nil {
+				t.Fatalf("keep literal key: %v: %s", err, out)
+			}
+			if replacement == "{kv}" {
+				requireFile(t, filepath.Join(dir, LastOpDetailFile), "previous history\n")
+			} else {
+				requireFile(t, filepath.Join(dir, "new_"+source), "original")
+				if out, err := runCLI(t, dir, "-u"); err != nil {
+					t.Fatalf("undo: %v: %s", err, out)
+				}
+			}
+			requireFile(t, filepath.Join(dir, source), "original")
+		})
+	}
 }

@@ -3,14 +3,13 @@
 - v2.14.1
     - flag `-N/--nature-sort` now applies to renaming as well as listing. [#36](https://github.com/shenwei356/brename/issues/36)
     - fix: correct exclude-filter assignment and recursive filtering, handle explicit search paths and `--only-dir` consistently, and inspect metadata without reading file contents. Exclude-filter assignment fix by @mazkev. [#41](https://github.com/shenwei356/brename/pull/41)
-    - fix: simplify path handling while preserving symlink and `..` resolution; detect aliased targets and distinct hard links, protect dangling symlinks, reject moves into a directory's own descendants, and protect the working directory, its ancestors, and undo log paths during execution and rename preview.
-    - fix: deduplicate overlapping inputs before assigning numbers, reject number overflow and cyclic dependencies, and order directory moves without changing move-chain or overwrite priority.
-    - fix: check history writes before moving files, preserve completed operations after failures and previous history when nothing changes, and escape special filenames while retaining compatibility with existing undo logs.
-    - fix: prevent undo from overwriting existing paths, preserve failed operations and their dependencies for retry, reserve recovery-log space before undo, and honor dry run and overlapping inputs when removing history.
-    - fix: validate `{kv}` capture indices, support empty captures, use the corresponding key for each match, and reject corrupt key-value input while stopping failed input commands.
+    - fix: validate normalized target names and conflicts, preserve symlink and `..` resolution, distinguish hard links, reject moving directories into their own descendants, and protect the working directory, its ancestors, dangling symlinks, and undo log paths during execution and rename preview. Add tests for native case-insensitive paths.
+    - fix: deduplicate overlapping inputs before assigning numbers, reject number overflow, excessive padding, and cyclic dependencies, and order moves through directory aliases and link chains without changing move-chain or overwrite priority.
+    - fix: check history writes before moving files, retain usable undo paths and completed operations after failures, preserve previous history when nothing changes, and escape special filenames while retaining compatibility with existing undo logs.
+    - fix: reject malformed undo logs before moving files, prevent undo from overwriting existing paths, preserve failed and dependent operations for retry, including through directory symlinks, reserve recovery-log space before undo, and honor dry run and overlapping inputs when removing history.
+    - fix: validate `{kv}` capture indices, support empty captures, use the corresponding key for each match, keep missing keys literally, and reject corrupt key-value input while stopping failed input commands.
     - fix: keep listing independent of rename and replacement checks, remove a data race in absolute-path listing, report output errors, and honor quiet mode while retaining errors and dry-run previews.
     - fix: add a timeout and HTTP-response checks to version queries, and avoid reporting older releases as upgrades.
-    - fix: package only built binaries and finish all builds and checksums before replacing existing release files.
 - v2.14.0
     - **setting default value of `-v/--verbose` as 2, which make the output more concise**. [#31](https://github.com/shenwei356/brename/issues/31)
     - output format changed.

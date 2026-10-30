@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -507,4 +508,200 @@ func TestCLIHistoryLeadingBOM(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "a")); !os.IsNotExist(err) {
 		t.Fatalf("created a BOM-stripped filename: %v", err)
 	}
+}
+
+// Failed parent restores must block paths through replacement symlinks, while
+// independent files and symlink entries remain eligible for forced undo.
+func TestCLIForceUndoSymlinkParent(t *testing.T) {
+	for _, alias := range []string{"none", "ancestor", "target", "parent components", "cycle"} {
+		t.Run(alias, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, name := range []string{"a/sub", "a/deep", "external/sub", "external/deep"} {
+				if err := os.MkdirAll(filepath.Join(dir, name), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			input := "a/sub"
+			if alias != "none" {
+				target := "."
+				input = "entrance/a/sub"
+				if alias == "target" || alias == "cycle" {
+					target, input = "a/sub", "entrance"
+				}
+				if alias == "parent components" {
+					if err := os.Symlink("a/deep", filepath.Join(dir, "hop")); err != nil {
+						t.Skipf("symlinks unavailable: %v", err)
+					}
+					target, input = "hop/../sub", "entrance"
+				}
+				if err := os.Symlink(target, filepath.Join(dir, "entrance")); err != nil {
+					t.Skipf("symlinks unavailable: %v", err)
+				}
+			}
+			if err := os.Symlink("a/missing", filepath.Join(dir, "a_link")); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			writeTestFile(t, filepath.Join(dir, "a", "sub", "a_file"), "original")
+			writeTestFile(t, filepath.Join(dir, "external", "sub", "b_file"), "unrelated")
+			writeTestFile(t, filepath.Join(dir, "external", "a_independent"), "independent")
+			if out, err := runCLI(t, dir, "-D", "-p", "^a", "-r", "b", input, "external/a_independent", "a_link", "a"); err != nil {
+				t.Fatalf("rename: %v: %s", err, out)
+			}
+			if err := os.Symlink("external", filepath.Join(dir, "a")); err != nil {
+				t.Fatal(err)
+			}
+			if alias == "cycle" {
+				if err := os.Remove(filepath.Join(dir, "entrance")); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink("entrance", filepath.Join(dir, "entrance")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if out, err := runCLI(t, dir, "-U"); err == nil {
+				t.Fatalf("expected parent conflict: %s", out)
+			}
+			requireFile(t, filepath.Join(dir, "external", "sub", "b_file"), "unrelated")
+			requireFile(t, filepath.Join(dir, "b", "sub", "b_file"), "original")
+			requireFile(t, filepath.Join(dir, "external", "a_independent"), "independent")
+			if target, err := os.Readlink(filepath.Join(dir, "a_link")); err != nil || target != "a/missing" {
+				t.Fatalf("independent link was not restored: %q, %v", target, err)
+			}
+			history, err := readHistory(filepath.Join(dir, LastOpDetailFile))
+			if err != nil || len(history) != 2 {
+				t.Fatalf("remaining dependent records: %#v, %v", history, err)
+			}
+			if err := os.Remove(filepath.Join(dir, "a")); err != nil {
+				t.Fatal(err)
+			}
+			if alias == "cycle" {
+				if err := os.Remove(filepath.Join(dir, "entrance")); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink("a/sub", filepath.Join(dir, "entrance")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if out, err := runCLI(t, dir, "-u"); err != nil {
+				t.Fatalf("retry: %v: %s", err, out)
+			}
+			requireFile(t, filepath.Join(dir, "a", "sub", "a_file"), "original")
+			requireFile(t, filepath.Join(dir, "external", "sub", "b_file"), "unrelated")
+		})
+	}
+}
+
+// Stable records for a move that invalidates its own alias must still block
+// earlier alias-based operations when the parent cannot be restored.
+func TestCLIForceUndoSelfDependentRoot(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"sub", "external/sub"} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, target := range map[string]string{"a_move": "sub", "entrance": "a_move/.."} {
+		if err := os.Symlink(target, filepath.Join(dir, name)); err != nil {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+	}
+	writeTestFile(t, filepath.Join(dir, "a_z"), "original")
+	writeTestFile(t, filepath.Join(dir, "external", "b_z"), "unrelated")
+	if out, err := runCLI(t, dir, "-p", "^a", "-r", "b", "entrance"); err != nil {
+		t.Fatalf("rename: %v: %s", err, out)
+	}
+	if err := os.Symlink("external/sub", filepath.Join(dir, "a_move")); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runCLI(t, dir, "-U"); err == nil {
+		t.Fatalf("expected parent conflict: %s", out)
+	}
+	requireFile(t, filepath.Join(dir, "b_z"), "original")
+	requireFile(t, filepath.Join(dir, "external", "b_z"), "unrelated")
+	history, err := readHistory(filepath.Join(dir, LastOpDetailFile))
+	if err != nil || len(history) != 2 {
+		t.Fatalf("remaining dependent records: %#v, %v", history, err)
+	}
+	if err := os.Remove(filepath.Join(dir, "a_move")); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runCLI(t, dir, "-u"); err != nil {
+		t.Fatalf("retry: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "a_z"), "original")
+	requireFile(t, filepath.Join(dir, "external", "b_z"), "unrelated")
+}
+
+// Invalid path bytes anywhere in a log must be rejected before later valid
+// records are undone, in either encoding and even with forced undo.
+func TestCLIUndoRejectsNULPaths(t *testing.T) {
+	for _, format := range []string{"legacy", "quoted"} {
+		for _, field := range []string{"source", "target"} {
+			for _, mode := range []string{"undo", "force", "preview"} {
+				t.Run(format+"/"+field+"/"+mode, func(t *testing.T) {
+					dir := t.TempDir()
+					writeTestFile(t, filepath.Join(dir, "b"), "valid file")
+					source, target := "invalid", "missing"
+					if field == "source" {
+						source += "\x00name"
+					} else {
+						target += "\x00name"
+					}
+					data := source + historyDelimiter + target + "\na" + historyDelimiter + "b\n"
+					if format == "quoted" {
+						data = historyHeader + "\n" + strconv.Quote(source) + "\t" + strconv.Quote(target) + "\n\"a\"\t\"b\"\n"
+					}
+					path := filepath.Join(dir, LastOpDetailFile)
+					writeTestFile(t, path, data)
+					args := []string{"-u"}
+					if mode == "force" {
+						args = []string{"-U"}
+					} else if mode == "preview" {
+						args = append(args, "-d")
+					}
+					if out, err := runCLI(t, dir, args...); err == nil {
+						t.Fatalf("invalid log accepted: %s", out)
+					}
+					requireFile(t, filepath.Join(dir, "b"), "valid file")
+					requireFile(t, path, data)
+					if _, err := os.Lstat(filepath.Join(dir, "a")); !os.IsNotExist(err) {
+						t.Fatalf("a valid record was undone before rejecting the log: %v", err)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestCLIForceUndoCaseInsensitiveParent(t *testing.T) {
+	dir := caseInsensitiveTestDir(t)
+	if err := os.MkdirAll(filepath.Join(dir, "parent", "sub"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(dir, "parent", "sub", "a"), "original")
+	writeTestFile(t, filepath.Join(dir, "kv"), "parent\trenamed\na\tb\n")
+	if out, err := runCLI(t, dir, "-w", "-D", "-p", "^(parent|a)$", "-r", "{kv}", "-k", "kv", "PARENT/sub", "parent"); err != nil {
+		t.Fatalf("rename: %v: %s", err, out)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "parent", "sub"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(dir, "parent", "sub", "b"), "unrelated")
+	if out, err := runCLI(t, dir, "-U"); err == nil {
+		t.Fatalf("expected parent conflict: %s", out)
+	}
+	requireFile(t, filepath.Join(dir, "parent", "sub", "b"), "unrelated")
+	requireFile(t, filepath.Join(dir, "renamed", "sub", "b"), "original")
+	history, err := readHistory(filepath.Join(dir, LastOpDetailFile))
+	if err != nil || len(history) != 2 {
+		t.Fatalf("remaining dependent records: %#v, %v", history, err)
+	}
+	if err := os.Rename(filepath.Join(dir, "parent"), filepath.Join(dir, "conflict")); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runCLI(t, dir, "-u"); err != nil {
+		t.Fatalf("retry: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "parent", "sub", "a"), "original")
+	requireFile(t, filepath.Join(dir, "conflict", "sub", "b"), "unrelated")
 }

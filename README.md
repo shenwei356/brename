@@ -161,6 +161,17 @@ amd64 and arm64 binaries for Linux, macOS, and Windows. All builds and checksums
 finish in a temporary directory before release files are replaced. Build failures
 leave existing archives untouched.
 
+For development, run `go test ./...`. Case-insensitive path tests require a writable
+case-insensitive filesystem for temporary files. Set `TMPDIR` (`TMP` on Windows)
+to a directory on that filesystem, then run:
+
+```sh
+go test -v -run 'TestCLICaseInsensitiveAliases|TestCLIForceUndoCaseInsensitiveParent' ./...
+```
+
+These tests report `SKIP` on a case-sensitive filesystem; a skipped case does not
+verify that behavior. Cross-compiling also does not run these filesystem checks.
+
 ## Usage
 
 ```
@@ -178,14 +189,14 @@ Warnings:
      -w/--case-insensitive-path to correctly check file overwrites.
   2. The flag -w/--case-insensitive-path is switched on by default on Windows, please use
      -W/--case-sensitive-path to disable it if the file system is indeed case-sensitive.
-  3. New paths ending with periods or spaces, being error-prone, are not allowed.
+  3. After path normalization, new names ending with periods or spaces are not allowed.
   4. Undo refuses to overwrite existing paths. Contents overwritten with -o 1 cannot be recovered.
   5. Renaming the working directory or its ancestors, or moving a directory into itself, is not allowed.
 
 Search paths:
   1. Overlapping inputs rename each source entry once; {nr} follows the first encounter.
      Empty path arguments are invalid; omit paths or use . for the current directory.
-  2. Moves finish before directory or symlink parents used by their paths are renamed.
+  2. Moves finish before directory or symlink parents used by their paths are renamed, including link chains.
      Moves touching the same entry retain their original order. Cyclic dependencies are rejected.
   3. -l lists matching source paths without reading key-value inputs or applying replacements.
 
@@ -208,11 +219,14 @@ Three path filters:
 
 Undo and history:
   1. Successful moves are recorded even if a later move fails. Undo failures remain in the log for retry.
+     Malformed records are rejected before any undo move.
   2. -U continues independent undo operations after failures and returns a nonzero status if any fail.
+     Paths depending on a failed restore are skipped, including through directory symlinks.
   3. -d previews renaming, undo, and --clear without changing files. Rename preview checks undo log paths;
      undo preview lists recorded operations.
   4. History stays in .brename_detail.txt. Existing logs remain readable, and ordinary filenames
      retain the old record format. Logs with filenames requiring escaping need an updated build.
+     Moves that invalidate their own directory alias use resolved paths in the log.
   5. Undo prepares a temporary recovery log before moving files; its directory must be writable.
 
 
@@ -223,6 +237,7 @@ Special replacement symbols:
           n can be specified by flag -I/--key-capt-idx (default: 1).
           Each match uses its own key. If any key is missing, the whole filename is skipped
           unless -K/--keep-key or -m/--key-miss-repl supplies a fallback.
+          -K keeps a missing key literally, including any '$' characters.
 
 Special cases of replacement string:
  *1. Capture variables should be in the format of '${1}' to reduce errors.
@@ -307,8 +322,8 @@ Flags:
   -s, --list-sep string           separator for list of found paths (default "\n")
       --max-depth int             maximum depth for recursive search or --clear (0 for no limit)
   -N, --nature-sort               sort paths in nature order for renaming or listing
-      --nr-width int              minimum width for {nr} in flag -r/--replacement. e.g., formating "1"
-                                  to "001" by --nr-width 3 (default 1)
+      --nr-width int              minimum width for {nr} (1-1000000). e.g., format "1" as "001" with
+                                  --nr-width 3 (default 1)
       --only-dir                  only rename directories
   -o, --overwrite-mode int        overwrite mode (0 for reporting error, 1 for overwrite, 2 for not
                                   renaming) (default 0)
@@ -398,7 +413,8 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
    Undo refuses to overwrite files created at their old names. If an operation fails,
    its record remains in the log so you can resolve the conflict and retry. `-U`
    continues independent operations after failures and returns a nonzero exit status
-   if any operation fails. It does not enable overwriting.
+   if any operation fails. Dependent paths are skipped even through directory symlinks.
+   It does not enable overwriting.
 
    Use `brename -u -d` to list recorded undo operations without changing files.
    `brename --clear -d -R` previews history removal. Undo cannot recover contents

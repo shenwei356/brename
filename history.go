@@ -168,6 +168,10 @@ func readHistory(path string) (history []operation, err error) {
 			if source == "" || target == "" {
 				return nil, fmt.Errorf("empty path in undo record at line %d", lineNumber)
 			}
+			// NUL cannot occur in a filesystem path on any supported platform.
+			if strings.ContainsRune(source, 0) || strings.ContainsRune(target, 0) {
+				return nil, fmt.Errorf("NUL byte in undo record at line %d", lineNumber)
+			}
 			history = append(history, operation{source: source, target: target})
 		}
 		if readErr == io.EOF {
@@ -304,23 +308,44 @@ func undoOperations(opt *Options) error {
 	return firstErr
 }
 
-// undoDependsOn keeps forced undo away from unrelated files that now occupy an
-// old directory name when restoring that directory failed. It also handles
-// exact-path dependencies in a chain of moves.
+// undoDependsOn keeps forced undo away from unrelated entries behind a failed
+// restore. Dependencies include directory symlinks used along a recorded path.
 func undoDependsOn(op operation, blocked []string) bool {
+	if len(blocked) == 0 {
+		return false
+	}
+	parents := make([]string, 0, len(blocked))
 	for _, parent := range blocked {
-		parentKey, err := pathKey(parent)
+		key, err := pathKey(parent)
 		if err != nil {
-			parentKey, _ = filepath.Abs(parent)
+			key, _ = filepath.Abs(parent)
 		}
-		for _, path := range []string{op.source, op.target} {
-			key, err := pathKey(path)
-			if err != nil {
-				key, _ = filepath.Abs(path)
-			}
-			if containsPath(parentKey, key) {
+		parents = append(parents, key)
+	}
+
+	dependsOn := func(key string) bool {
+		for _, parent := range parents {
+			if containsPath(parent, key) {
 				return true
 			}
+		}
+		return false
+	}
+	for _, path := range []string{op.source, op.target} {
+		key, err := pathKey(path)
+		if err != nil {
+			key, _ = filepath.Abs(path)
+		}
+		if dependsOn(key) {
+			return true
+		}
+		// Rename moves the final symlink itself; only parent links are followed.
+		parent, _ := filepath.Split(path)
+		if parent == "" {
+			parent = "."
+		}
+		if visitDirectoryEntries(parent, dependsOn) {
+			return true
 		}
 	}
 	return false

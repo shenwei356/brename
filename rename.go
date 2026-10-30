@@ -81,6 +81,52 @@ func resolveDirectory(path string) (string, error) {
 	return filepath.Join(parent, name), nil
 }
 
+// visitDirectoryEntries visits resolved entries used to traverse a directory,
+// including intermediate symlinks and their targets. A true result stops the walk.
+func visitDirectoryEntries(path string, visit func(string) bool) bool {
+	expanded := make(map[string]bool) // Expand each symlink once, including cycles.
+	var walk func(string) bool
+	walk = func(path string) bool {
+		for {
+			trimmed := strings.TrimRight(path, string(os.PathSeparator)+"/")
+			if trimmed != "" && trimmed != filepath.VolumeName(path) {
+				path = trimmed // Preserve roots, but inspect a final directory link itself.
+			}
+			key, err := pathKey(path)
+			if err != nil {
+				// Undo must retain dependencies even after a parent becomes inaccessible.
+				key, _ = filepath.Abs(path)
+			}
+			if visit(key) {
+				return true
+			}
+			if !expanded[key] {
+				if target, err := os.Readlink(key); err == nil {
+					expanded[key] = true
+					if !filepath.IsAbs(target) && filepath.VolumeName(target) == "" {
+						if os.IsPathSeparator(target[0]) {
+							target = filepath.VolumeName(key) + target
+						} else {
+							// Do not clean symlink/.. components in the link target.
+							target = filepath.Dir(key) + string(os.PathSeparator) + target
+						}
+					}
+					if walk(target) {
+						return true
+					}
+				}
+			}
+			// Split without lexical cleaning so symlink/.. dependencies survive.
+			parent, name := filepath.Split(path)
+			if parent == "" || name == "" {
+				return false
+			}
+			path = parent
+		}
+	}
+	return walk(path)
+}
+
 // containsPath reports whether child is parent itself or an entry below it.
 func containsPath(parent, child string) bool {
 	rel, err := filepath.Rel(parent, child)
@@ -188,7 +234,7 @@ func targetExists(source, target string) (bool, error) {
 // reach their source or target, including when explicit search roots overlap.
 // Moves touching the same entry retain their original order.
 func orderOperations(ops []operation) ([]operation, error) {
-	if len(ops) < 2 {
+	if len(ops) == 0 {
 		return ops, nil
 	}
 	keys := make([][4]string, len(ops)) // Physical and lexical source and target paths.
@@ -230,6 +276,31 @@ func orderOperations(ops []operation) ([]operation, error) {
 				}
 				path = parent
 			}
+		}
+	}
+	// Endpoint keys hide links followed inside another link's target. Inspect
+	// those paths separately; ordinary paths need no additional filesystem walk.
+	for i, op := range ops {
+		for j, path := range []string{op.source, op.target} {
+			if keys[i][2*j] == keys[i][2*j+1] {
+				continue
+			}
+			parent, _ := filepath.Split(path)
+			if parent == "" {
+				parent = "."
+			}
+			visitDirectoryEntries(parent, func(key string) bool {
+				if ancestor, ok := sources[key]; ok {
+					if ancestor == i {
+						// This move invalidates its own directory alias. Keep stable
+						// entry paths for execution and the subsequent undo record.
+						ops[i].source, ops[i].target = keys[i][0], keys[i][2]
+					} else {
+						addDependency(ancestor, i)
+					}
+				}
+				return false
+			})
 		}
 	}
 	// Append entry-order dependencies after directory dependencies so traversal

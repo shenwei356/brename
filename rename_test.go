@@ -520,3 +520,269 @@ func TestCLIDirectoryIntoItself(t *testing.T) {
 		}
 	}
 }
+
+// Directory dependencies include links and parent components inside link targets.
+func TestCLIOrderingThroughDirectoryLinks(t *testing.T) {
+	for _, kind := range []string{"link chain", "parent components"} {
+		for _, targetPath := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/target=%v", kind, targetPath), func(t *testing.T) {
+				dir := t.TempDir()
+				if err := os.MkdirAll(filepath.Join(dir, "real", "sub"), 0700); err != nil {
+					t.Fatal(err)
+				}
+				linkTarget := "a/sub"
+				if kind == "link chain" {
+					if err := os.Symlink("real", filepath.Join(dir, "a")); err != nil {
+						t.Skipf("symlinks unavailable: %v", err)
+					}
+				} else {
+					if err := os.Mkdir(filepath.Join(dir, "a"), 0700); err != nil {
+						t.Fatal(err)
+					}
+					linkTarget = "a/../real/sub"
+				}
+				if err := os.Symlink(linkTarget, filepath.Join(dir, "entrance")); err != nil {
+					t.Skipf("symlinks unavailable: %v", err)
+				}
+				input, original := "entrance", filepath.Join("real", "sub", "a_file")
+				if targetPath {
+					input, original = "z", "z"
+				}
+				writeTestFile(t, filepath.Join(dir, original), "original")
+				writeTestFile(t, filepath.Join(dir, "kv"), "a\tb\na_file\tb_file\nz\tentrance/b_file\n")
+				if out, err := runCLI(t, dir, "-D", "-p", "^(a|a_file|z)$", "-r", "{kv}", "-k", "kv", "a", input); err != nil {
+					t.Fatalf("rename through directory links: %v: %s", err, out)
+				}
+				requireFile(t, filepath.Join(dir, "real", "sub", "b_file"), "original")
+				if out, err := runCLI(t, dir, "-u"); err != nil {
+					t.Fatalf("undo: %v: %s", err, out)
+				}
+				requireFile(t, filepath.Join(dir, original), "original")
+				if _, err := os.Lstat(filepath.Join(dir, "a")); err != nil {
+					t.Fatalf("parent not restored: %v", err)
+				}
+			})
+		}
+	}
+}
+
+// A move can invalidate its own directory alias; both execution and undo need
+// stable paths for that move, while the other entries must be renamed first.
+func TestCLISelfDependentSearchRoot(t *testing.T) {
+	for _, kind := range []string{"symlink", "directory"} {
+		for _, otherFile := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/other=%v", kind, otherFile), func(t *testing.T) {
+				dir := t.TempDir()
+				if kind == "symlink" {
+					if err := os.Mkdir(filepath.Join(dir, "sub"), 0700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Symlink("sub", filepath.Join(dir, "a_move")); err != nil {
+						t.Skipf("symlinks unavailable: %v", err)
+					}
+				} else if err := os.Mkdir(filepath.Join(dir, "a_move"), 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink("a_move/..", filepath.Join(dir, "entrance")); err != nil {
+					t.Skipf("symlinks unavailable: %v", err)
+				}
+				if otherFile {
+					writeTestFile(t, filepath.Join(dir, "a_z"), "original")
+				}
+				if out, err := runCLI(t, dir, "-D", "-p", "^a", "-r", "b", "entrance"); err != nil {
+					t.Fatalf("rename through its own alias: %v: %s", err, out)
+				}
+				if _, err := os.Lstat(filepath.Join(dir, "b_move")); err != nil {
+					t.Fatalf("parent entry not renamed: %v", err)
+				}
+				if otherFile {
+					requireFile(t, filepath.Join(dir, "b_z"), "original")
+				}
+				if out, err := runCLI(t, dir, "-u"); err != nil {
+					t.Fatalf("undo through its own alias: %v: %s", err, out)
+				}
+				if _, err := os.Lstat(filepath.Join(dir, "a_move")); err != nil {
+					t.Fatalf("parent entry not restored: %v", err)
+				}
+				if kind == "symlink" {
+					if target, err := os.Readlink(filepath.Join(dir, "a_move")); err != nil || target != "sub" {
+						t.Fatalf("restored symlink: %q, %v", target, err)
+					}
+				}
+				if otherFile {
+					requireFile(t, filepath.Join(dir, "a_z"), "original")
+				}
+			})
+		}
+	}
+}
+
+func TestCLISymlinkMovedIntoItsTarget(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "real"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("real", filepath.Join(dir, "link")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if out, err := runCLI(t, dir, "-D", "-p", "^link$", "-r", "link/moved", "link"); err != nil {
+		t.Fatalf("moving a symlink into its target: %v: %s", err, out)
+	}
+	if target, err := os.Readlink(filepath.Join(dir, "real", "moved")); err != nil || target != "real" {
+		t.Fatalf("moved symlink: %q, %v", target, err)
+	}
+	if out, err := runCLI(t, dir, "-u"); err != nil {
+		t.Fatalf("undo symlink move: %v: %s", err, out)
+	}
+	if target, err := os.Readlink(filepath.Join(dir, "link")); err != nil || target != "real" {
+		t.Fatalf("restored symlink: %q, %v", target, err)
+	}
+}
+
+func TestCLINormalizedTargetNames(t *testing.T) {
+	for _, test := range []struct{ replacement, target string }{
+		{"bad./", ""}, {"bad.//", ""}, {"bad /", ""}, {"bad //", ""},
+		{"b/.", "b"}, {"b/", "b"},
+	} {
+		for _, dryRun := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/dry=%v", test.replacement, dryRun), func(t *testing.T) {
+				dir := t.TempDir()
+				writeTestFile(t, filepath.Join(dir, "a"), "original")
+				writeTestFile(t, filepath.Join(dir, LastOpDetailFile), "previous history\n")
+				args := []string{"-p", "^a$", "-r", test.replacement, "a"}
+				if dryRun {
+					args = append([]string{"-d"}, args...)
+				}
+				out, err := runCLI(t, dir, args...)
+				if (err == nil) != (test.target != "") {
+					t.Fatalf("normalized target validation: %v: %s", err, out)
+				}
+				if test.target == "" || dryRun {
+					requireFile(t, filepath.Join(dir, "a"), "original")
+					requireFile(t, filepath.Join(dir, LastOpDetailFile), "previous history\n")
+					entries, err := os.ReadDir(dir)
+					if err != nil || len(entries) != 2 {
+						t.Fatalf("unexpected filesystem changes: %v, %v", entries, err)
+					}
+				} else {
+					requireFile(t, filepath.Join(dir, test.target), "original")
+					if out, err := runCLI(t, dir, "-u"); err != nil {
+						t.Fatalf("undo: %v: %s", err, out)
+					}
+					requireFile(t, filepath.Join(dir, "a"), "original")
+				}
+			})
+		}
+	}
+}
+
+// caseInsensitiveTestDir requires a real filesystem alias, not a simulated flag.
+// Set TMPDIR (TMP on Windows) to a suitable writable filesystem to run these cases.
+func caseInsensitiveTestDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	probe := filepath.Join(dir, "case_probe")
+	writeTestFile(t, probe, "probe")
+	lower, err := os.Stat(probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	upper, err := os.Stat(filepath.Join(dir, "CASE_PROBE"))
+	if os.IsNotExist(err) || (err == nil && !os.SameFile(lower, upper)) {
+		t.Skip("requires a case-insensitive filesystem for temporary files")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(probe); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+func TestCLICaseInsensitiveAliases(t *testing.T) {
+	t.Run("case-only rename", func(t *testing.T) {
+		dir := caseInsensitiveTestDir(t)
+		writeTestFile(t, filepath.Join(dir, "file"), "original")
+		if out, err := runCLI(t, dir, "-w", "-p", "^file$", "-r", "FILE", "file"); err != nil {
+			t.Fatalf("case-only rename: %v: %s", err, out)
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, entry := range entries {
+			found = found || entry.Name() == "FILE"
+		}
+		if !found {
+			t.Fatal("directory entry spelling was not changed")
+		}
+		if out, err := runCLI(t, dir, "-u"); err != nil {
+			t.Fatalf("undo: %v: %s", err, out)
+		}
+		entries, err = os.ReadDir(dir)
+		if err != nil || len(entries) != 1 || entries[0].Name() != "file" {
+			t.Fatalf("restored entry spelling: %v, %v", entries, err)
+		}
+		requireFile(t, filepath.Join(dir, "file"), "original")
+	})
+	t.Run("duplicate numbered source", func(t *testing.T) {
+		dir := caseInsensitiveTestDir(t)
+		writeTestFile(t, filepath.Join(dir, "file"), "original")
+		if out, err := runCLI(t, dir, "-w", "-p", "^.*$", "-r", "new_{nr}", "file", "FILE"); err != nil {
+			t.Fatalf("duplicate source alias: %v: %s", err, out)
+		}
+		requireFile(t, filepath.Join(dir, "new_1"), "original")
+		history, err := readHistory(filepath.Join(dir, LastOpDetailFile))
+		if err != nil || len(history) != 1 {
+			t.Fatalf("one entry should produce one record: %#v, %v", history, err)
+		}
+		if out, err := runCLI(t, dir, "-u"); err != nil {
+			t.Fatalf("undo: %v: %s", err, out)
+		}
+		requireFile(t, filepath.Join(dir, "file"), "original")
+	})
+	t.Run("unchanged parent alias", func(t *testing.T) {
+		dir := caseInsensitiveTestDir(t)
+		if err := os.Mkdir(filepath.Join(dir, "parent"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		writeTestFile(t, filepath.Join(dir, "parent", "file"), "original")
+		writeTestFile(t, filepath.Join(dir, LastOpDetailFile), "previous history\n")
+		if out, err := runCLI(t, dir, "-w", "-p", "^file$", "-r", "../PARENT/file", "parent/file"); err != nil {
+			t.Fatalf("unchanged alias: %v: %s", err, out)
+		}
+		requireFile(t, filepath.Join(dir, "parent", "file"), "original")
+		requireFile(t, filepath.Join(dir, LastOpDetailFile), "previous history\n")
+	})
+	t.Run("working directory ancestor", func(t *testing.T) {
+		dir := caseInsensitiveTestDir(t)
+		cwd := filepath.Join(dir, "parent", "child")
+		if err := os.MkdirAll(cwd, 0700); err != nil {
+			t.Fatal(err)
+		}
+		writeTestFile(t, filepath.Join(cwd, "file"), "original")
+		out, err := runCLI(t, cwd, "-d", "-x", "-w", "--only-dir", "-p", "^PARENT$", "-r", "renamed", filepath.Join(dir, "PARENT"))
+		if err == nil {
+			t.Fatalf("working directory ancestor accepted through a case alias: %s", out)
+		}
+		requireFile(t, filepath.Join(cwd, "file"), "original")
+	})
+	t.Run("parent dependency", func(t *testing.T) {
+		dir := caseInsensitiveTestDir(t)
+		if err := os.MkdirAll(filepath.Join(dir, "parent", "sub"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		writeTestFile(t, filepath.Join(dir, "parent", "sub", "a"), "original")
+		writeTestFile(t, filepath.Join(dir, "kv"), "parent\trenamed\na\tb\n")
+		if out, err := runCLI(t, dir, "-w", "-D", "-p", "^(parent|a)$", "-r", "{kv}", "-k", "kv", "parent", "PARENT/sub"); err != nil {
+			t.Fatalf("case alias dependency: %v: %s", err, out)
+		}
+		requireFile(t, filepath.Join(dir, "renamed", "sub", "b"), "original")
+		if out, err := runCLI(t, dir, "-u"); err != nil {
+			t.Fatalf("undo: %v: %s", err, out)
+		}
+		requireFile(t, filepath.Join(dir, "parent", "sub", "a"), "original")
+	})
+}
