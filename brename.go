@@ -42,7 +42,7 @@ import (
 
 var log *logging.Logger
 
-var VERSION = "2.14.1"
+var VERSION = "2.15.0"
 var app = "brename"
 var LastOpDetailFile = ".brename_detail.txt"
 

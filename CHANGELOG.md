@@ -1,6 +1,6 @@
 # Changelog
 
-- v2.14.1
+- v2.15.0
     - flag `-N/--nature-sort` now applies to renaming as well as listing. [#36](https://github.com/shenwei356/brename/issues/36)
     - fix: correct exclude-filter assignment and recursive filtering, handle explicit search paths and `--only-dir` consistently, and inspect metadata without reading file contents. Exclude-filter assignment fix by @mazkev. [#41](https://github.com/shenwei356/brename/pull/41)
     - fix: validate normalized target names and conflicts, preserve symlink and `..` resolution, distinguish hard links, reject moving directories into their own descendants, and protect the working directory, its ancestors, dangling symlinks, and undo log paths during execution and rename preview. Add tests for native case-insensitive paths.

@@ -5,7 +5,7 @@
 [![Latest Version](https://img.shields.io/github/release/shenwei356/brename.svg?style=flat?maxAge=86400)](https://github.com/shenwei356/brename/releases)
 [![Github Releases](https://img.shields.io/github/downloads/shenwei356/brename/latest/total.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases)
 
-`brename` is a cross-platform command-line tool for safely batch renaming files/directories via regular expression.
+`brename` is a cross-platform command-line tool for safely batch renaming files/directories via regular expressions.
 
 <img src="screenshot/success.png" width="700"/>
 
@@ -27,26 +27,26 @@
 
 ## Features
 
-- **Cross-platform**. Supporting Windows, Mac OS X and Linux, 
+- **Cross-platform**. Supports Windows, Mac OS X and Linux.
     - Windows file systems, including NTFS and FAT, are case-insensitive.
     Some operations are allowed on Linux, while they could be dangerous on Windows.
     [For example](https://github.com/shenwei356/brename/issues/28), renaming `test.tar.gz` to `test.tar` will overwrite `TEST.tar`. 
     `brename` (v2.13.0 and later versions) can handle these cases appropriately (`-w` and `-W`).
 
-- **Safe**. ***It helps you check potential conflicts and errors before it's too late***.
+- **Safe**. ***It helps you check for potential conflicts and errors before it's too late***.
 
     <img src="screenshot/check-error.png" width="700"/>
 
-    Some common conflict and errors that might happen with commands like `mv` or `rename`.
+    Some common conflicts and errors that might happen with commands like `mv` or `rename`:
 
-    - `New path existed`: **Existed files might be overwritten, causing data loss**.
-	- `Overwriting newly renamed path`. **Existed files might be overwritten, causing data loss.**
-       This case is hard to check by eyes.
-	- `Missing target`: New file is empty, that's not allowed.
+    - `New path existed`: **Existing files might be overwritten, causing data loss**.
+	- `Overwriting newly renamed path`. **Existing files might be overwritten, causing data loss.**
+       This case is hard to check by eye.
+	- `Missing target`: The new filename is empty, which is not allowed.
 	- `New path ending with a space`: Not allowed in Windows. It's legal in Linux, but might cause unexpected errors.
 	- `New path ending with a period`: Not allowed in Windows.
 
-- **Supporting dry run**. A good habbit.
+- **Supporting dry runs**. A good habit.
 
     <img src="screenshot/dry-run.png" width="700"/>
 
@@ -54,22 +54,22 @@
 
     <img src="screenshot/undo.png" width="700"/>
 
-- **Overwrite can be detected and users can choose whether overwrite or leave it** (`-o/--overwrite-mode`).
+- **Overwrites can be detected and users can choose whether to overwrite or skip them** (`-o/--overwrite-mode`).
 - **File filtering**.
-    - Supporting including (`-f/--include-filters`) and excluding (`-F/--exclude-filters`) files via regular expression.
+    - Supports including (`-f/--include-filters`) and excluding (`-F/--exclude-filters`) files via regular expressions.
     - No need to run commands like `find ./ -name "*.html" -exec CMD`.
-- **Renaming submatch with corresponding value via key-value file** (`-r "{kv}" -k kv.tsv`).
-- **Renaming via ascending integer** (`-r "{nr}"`). 
-- **Automatically making directoy**: e.g., renaming `a-b-c.txt` to `a/b/c.txt`.
+- **Renaming submatches with corresponding values via a key-value file** (`-r "{kv}" -k kv.tsv`).
+- **Renaming via ascending integers** (`-r "{nr}"`).
+- **Automatically making directories**: e.g., renaming `a-b-c.txt` to `a/b/c.txt`.
 - **Recursively renaming both files and directories** (`-R/--recursive`, `-D/--including-dir`, `--only-dir`).
 
 
 
 ## Installation
 
-`brename` is implemented in [Go](https://golang.org/) programming language,
+`brename` is implemented in the [Go](https://golang.org/) programming language;
  executable binary files **for most popular operating systems** are freely available
-  in [release](https://github.com/shenwei356/brename/releases) page.
+  on the [releases](https://github.com/shenwei356/brename/releases) page.
 
 #### Method 0: Conda
 
@@ -83,10 +83,10 @@ Or use [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-install
 
 #### Method 1: Download binaries
 
-[brename v2.14.0](https://github.com/shenwei356/brename/releases/tag/v2.14.0)
-[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.14.0/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.14.0)
+[brename v2.15.0](https://github.com/shenwei356/brename/releases/tag/v2.15.0)
+[![Github Releases (by Release)](https://img.shields.io/github/downloads/shenwei356/brename/v2.15.0/total.svg)](https://github.com/shenwei356/brename/releases/tag/v2.15.0)
 
-***Tip: run `brename -V` to check update !!!***
+***Tip: run `brename -V` to check for updates!***
 
 Version checks wait up to 30 seconds for GitHub and report network or HTTP errors.
 A release that differs from the installed version is shown as the latest release;
@@ -94,31 +94,31 @@ it may be older than a local development build.
 
 OS     |Arch      |File                                                                                                                                      |Download Count
 :------|:---------|:-----------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_386.tar.gz)                      |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_386.tar.gz)
-Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_amd64.tar.gz)              |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_amd64.tar.gz)
-Linux  |arm64     |[**brename_linux_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_arm64.tar.gz)              |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_linux_arm64.tar.gz)
-OS X   |**64-bit**|[**brename_darwin_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_amd64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_amd64.tar.gz)
-OS X   |arm64     |[**brename_darwin_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_arm64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_darwin_arm64.tar.gz)
-Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_386.exe.tar.gz)
-Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_amd64.exe.tar.gz)  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_amd64.exe.tar.gz)
-Windows|arm64     |[**brename_windows_arm64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_arm64.exe.tar.gz)  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_arm64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.14.0/brename_windows_arm64.exe.tar.gz)
+Linux  |32-bit    |[brename_linux_386.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_linux_386.tar.gz)                      |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_386.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_linux_386.tar.gz)
+Linux  |**64-bit**|[**brename_linux_amd64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_linux_amd64.tar.gz)              |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_linux_amd64.tar.gz)
+Linux  |arm64     |[brename_linux_arm64.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_linux_arm64.tar.gz)                  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_linux_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_linux_arm64.tar.gz)
+OS X   |**64-bit**|[brename_darwin_amd64.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_darwin_amd64.tar.gz)                |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_amd64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_darwin_amd64.tar.gz)
+OS X   |arm64     |[**brename_darwin_arm64.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_darwin_arm64.tar.gz)            |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_darwin_arm64.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_darwin_arm64.tar.gz)
+Windows|32-bit    |[brename_windows_386.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_windows_386.exe.tar.gz)          |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_386.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_windows_386.exe.tar.gz)
+Windows|**64-bit**|[**brename_windows_amd64.exe.tar.gz**](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_windows_amd64.exe.tar.gz)  |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_amd64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_windows_amd64.exe.tar.gz)
+Windows|arm64     |[brename_windows_arm64.exe.tar.gz](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_windows_arm64.exe.tar.gz)      |[![Github Releases (by Asset)](https://img.shields.io/github/downloads/shenwei356/brename/latest/brename_windows_arm64.exe.tar.gz.svg?maxAge=3600)](https://github.com/shenwei356/brename/releases/download/v2.15.0/brename_windows_arm64.exe.tar.gz)
 
 
-Just [download](https://github.com/shenwei356/brename/releases) compressed
-executable file of your operating system,
-and decompress it with `tar -zxvf *.tar.gz` command or other tools.
+Just [download](https://github.com/shenwei356/brename/releases) the compressed
+executable file for your operating system,
+and decompress it with the `tar -zxvf *.tar.gz` command or other tools.
 And then:
 
 1. **For Linux-like systems**
-    1. If you have root privilege simply copy it to `/usr/local/bin`:
+    1. If you have root privileges, simply copy it to `/usr/local/bin`:
 
             sudo cp brename /usr/local/bin/
 
-    1. Or copy to anywhere in the environment variable `PATH`:
+    1. Or copy it to a directory listed in the environment variable `PATH`:
 
             mkdir -p $HOME/bin/; cp brename $HOME/bin/
 
-1. **For windows**, just copy `brename.exe` to `C:\WINDOWS\system32`.
+1. **For Windows**, just copy `brename.exe` to `C:\WINDOWS\system32`.
 
 #### Method 2: Homebrew
 
@@ -134,10 +134,12 @@ And then:
     
 #### Method 5: Compiling from source
 
+Go 1.26.0 or later is required.
+
     # download Go from https://go.dev/dl
-    wget https://go.dev/dl/go1.24.2.linux-amd64.tar.gz
+    wget https://go.dev/dl/go1.27.3.linux-amd64.tar.gz
     
-    tar -zxf go1.24.2.linux-amd64.tar.gz -C $HOME/
+    tar -zxf go1.27.3.linux-amd64.tar.gz -C $HOME/
     
     # or 
     #   echo "export PATH=$PATH:$HOME/go/bin" >> ~/.bashrc
@@ -178,7 +180,7 @@ verify that behavior. Cross-compiling also does not run these filesystem checks.
 
 brename: a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.14.1
+Version: 2.15.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -349,7 +351,7 @@ Flags:
 
 ## Examples
 
-Take a directory for example (run `generate-example-folder.sh` to generate)
+Take this directory as an example (run `generate-example-folder.sh` to generate it):
 
     $ sh generate-example-folder.sh 
     example
@@ -366,7 +368,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
 
 1. Recursively renaming all `.jpeg` files to `.jpg` in all subdirectories (`-R/--recursive`).
- A dry run is firstly performed for safety checking (`-d/--dry-run`).
+ A dry run is performed first to check for errors (`-d/--dry-run`).
 
         $ brename -p "\.jpeg" -r ".jpg" -R -d
         Searching for paths to rename...
@@ -423,8 +425,9 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
    History remains in `.brename_detail.txt`. Existing logs are still readable, and
    ordinary filenames retain the old record format, which older versions can read.
    Only logs containing filenames that need escaping use a versioned format; these
-   require an updated build. Temporary writes use `.brename_detail.txt.tmp-*` and
-   replace the history file only after writing succeeds.
+   require an updated build. Temporary writes use `.brename_detail.txt.tmp-*` in
+   the current working directory, beside `.brename_detail.txt`, and replace the
+   history file only after writing succeeds.
 
    Undo prepares a complete temporary recovery log before moving files, then reuses
    it for any remaining records. If this preparation fails, no files are moved.
@@ -442,7 +445,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
   
         $ brename --clear -R
     
-1. Dry run, only showing operations that will cause error (just remove `-d`).
+1. Dry run, only showing operations that will cause errors (remove `-d` to rename).
 
         # default value of -v is 2
         $ brename -p a -r b -R -D -d
@@ -512,7 +515,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         │   └── B.jpg
         └── b.jpg
 
-1. Renaming directory too (`-D/--including-dir`), even renaming directory only (`-D --only-dir`)
+1. Renaming directories too (`-D/--including-dir`), or renaming directories only (`-D --only-dir`)
 
         $ brename -p "a" -r "A" -R -D
         Searching for paths to rename...
@@ -560,7 +563,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         2 path(s) to be renamed
 
 
-    ***Attention: value of `-f/--include-filters` and `-F/--exclude-filters` should be regular expression, NOT wildcard!***
+    ***Attention: values of `-f/--include-filters` and `-F/--exclude-filters` should be regular expressions, NOT wildcards!***
         
         $ brename -p '(.)' -r '$1 ' -d -f *.jpg
         Seems you are using wildcard for -f/--include-filters? Make sure using regular expression: AA.jpg
@@ -601,7 +604,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         2 path(s) to be renamed
         
 1. Skipping files via skip filter (regular expression) (`-S/--skip-filters`). This filter step is performed before the exclude filters.
-  The default value `^\.` is for skipping files starting with dot, which are hidden configuration files in Linux.
+  The default value `^\.` is for skipping files starting with a dot, which are hidden files in Linux.
   Matching subdirectories are also skipped during recursive search, even without `-D`.
   Include filters select files and directories to rename without pruning subdirectories.
   Explicit search roots are searched. If you do not want to skip hidden entries, just empty it.
@@ -629,7 +632,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
         3 path(s) to be renamed
 
-1. Renaming with number (-r `{nr}`)
+1. Renaming with numbers (`-r "{nr}"`)
 
         $ brename -d -p '(.+)\.' -r 'pic-{nr}.' -f .jpg -d
         Searching for paths to rename...
@@ -649,7 +652,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
         2 path(s) to be renamed
 
 
-1. Replace submatch with corresponding value via tab delimited key-value file (`-k/--kv-file`)
+1. Replace submatches with corresponding values via a tab-delimited key-value file (`-k/--kv-file`)
 
     Each match uses its own captured key. For example, with `a` mapped to `Alpha`
     and `b` mapped to `Beta`, `-p '([ab])' -r '{kv}' -k kv.tsv` renames `a-b` to
@@ -750,7 +753,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
 ## Real-world examples
 
-1. Formating genome assembly file from NCBI.
+1. Formatting a genome assembly filename from NCBI.
     
         $ ls 
         GCF_029211165.1_ASM2921116v1_genomic.fa
@@ -798,7 +801,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
             TCTATAG S4
             TCATAGC S3
 
-    1. Renaming tag as sample name, marking `unknown` for non-existing tag.
+    1. Renaming tags as sample names, using `unknown` for missing tags.
 
             $ brename -e -p 'tag_(\w+)' -r '{kv}' -k barcodes.tsv -m unknown -d
             [INFO] read key-value file: barcodes.tsv
@@ -833,7 +836,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 
             $ brename -p ":" -r " _" -R
 
-    1. Shortening file names (prefering spliting with space)
+    1. Shortening file names (preferring to split at a space)
 
             $ brename -R -f .pdf -i -p "^(.{30,50})[ \.].*.pdf" -r "\$1.pdf" -d
 
@@ -857,7 +860,7 @@ Take a directory for example (run `generate-example-folder.sh` to generate)
 ## Contact
 
 [Create an issue](https://github.com/shenwei356/brename/issues) to report bugs,
-propose new functions or ask for help.
+propose new features or ask for help.
 
 ## License
 

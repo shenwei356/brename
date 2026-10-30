@@ -7,10 +7,12 @@ output_dir=binaries
 targets="
 linux/amd64
 linux/arm64
+linux/386
 darwin/amd64
 darwin/arm64
 windows/amd64
 windows/arm64
+windows/386
 "
 
 # Validate the output before creating temporary files or replacing archives.
