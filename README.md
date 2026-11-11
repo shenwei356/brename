@@ -866,6 +866,3 @@ propose new features or ask for help.
 
 [MIT License](https://github.com/shenwei356/brename/blob/master/LICENSE)
 
-## Starchart
-
-<img src="https://starchart.cc/shenwei356/brename.svg" alt="Stargazers over time" style="max-width: 100%">

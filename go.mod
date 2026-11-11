@@ -15,11 +15,11 @@ require (
 require (
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/klauspost/compress v1.20.3 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/klauspost/pgzip v1.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/pierrec/lz4/v4 v4.1.33 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/spf13/pflag v1.1.0 // indirect
 	github.com/ulikunitz/xz v0.5.17 // indirect
-	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 )

@@ -1,5 +1,8 @@
 # Changelog
 
+- v2.15.1
+    - fix: avoid false failures in packaging tests for the supported Linux and Windows 386 releases.
+
 - v2.15.0
     - flag `-N/--nature-sort` now applies to renaming as well as listing. [#36](https://github.com/shenwei356/brename/issues/36)
     - fix: correct exclude-filter assignment and recursive filtering, handle explicit search paths and `--only-dir` consistently, and inspect metadata without reading file contents. Exclude-filter assignment fix by @mazkev. [#41](https://github.com/shenwei356/brename/pull/41)

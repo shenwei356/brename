@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -89,8 +90,15 @@ exit 8
 					t.Fatal(err)
 				}
 				targets := strings.Fields(string(calls))
-				if len(targets) != 6 {
-					t.Fatalf("build targets: %q", calls)
+				// Check every supported target, including the Linux and Windows 386 builds.
+				wantTargets := []string{
+					"darwin/amd64", "darwin/arm64",
+					"linux/386", "linux/amd64", "linux/arm64",
+					"windows/386", "windows/amd64", "windows/arm64",
+				}
+				slices.Sort(targets)
+				if !slices.Equal(targets, wantTargets) {
+					t.Fatalf("build targets: got %q, want %q", targets, wantTargets)
 				}
 				for _, target := range targets {
 					suffix := ""
