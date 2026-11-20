@@ -644,6 +644,47 @@ func TestCLIQuietDiagnostics(t *testing.T) {
 	requireFile(t, filepath.Join(dir, "b"), "original")
 }
 
+// TestCLISearchErrorStatus checks fatal target validation through the real CLI.
+func TestCLISearchErrorStatus(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixture uses a colon in a Unix filename")
+	}
+	for _, dryRun := range []bool{false, true} {
+		for _, quiet := range []bool{false, true} {
+			t.Run(fmt.Sprintf("dry=%v/quiet=%v", dryRun, quiet), func(t *testing.T) {
+				dir := t.TempDir()
+				// The 255-byte source fits; replacing ':' with three bytes does not.
+				source := strings.Repeat("a", 250) + ":.pdf"
+				writeTestFile(t, filepath.Join(dir, source), "original")
+				writeTestFile(t, filepath.Join(dir, "z:later.pdf"), "later")
+				writeTestFile(t, filepath.Join(dir, LastOpDetailFile), "previous history")
+				args := []string{"-R", "-p", ":", "-r", ` \_`}
+				if dryRun {
+					args = append(args, "-d")
+				}
+				if quiet {
+					args = append(args, "-q")
+				}
+				out, err := runCLI(t, dir, args...)
+				if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 1 {
+					t.Fatalf("expected exit 1, got %v: %s", err, out)
+				}
+				for _, want := range []string{"[ERRO]", "search stopped", "not all paths were checked", "no files renamed", "file name too long"} {
+					if !strings.Contains(out, want) {
+						t.Errorf("missing %q: %s", want, out)
+					}
+				}
+				if strings.Contains(out, "z:later.pdf") || strings.Contains(out, "Done searching.") {
+					t.Fatalf("search continued or reported completion after a fatal error: %s", out)
+				}
+				requireFile(t, filepath.Join(dir, source), "original")
+				requireFile(t, filepath.Join(dir, "z:later.pdf"), "later")
+				requireFile(t, filepath.Join(dir, LastOpDetailFile), "previous history")
+			})
+		}
+	}
+}
+
 func TestCLIEmptySearchRoot(t *testing.T) {
 	for _, args := range [][]string{
 		{"-p", "^a$", "-r", "b", ""},

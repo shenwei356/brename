@@ -583,16 +583,24 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 }
 
 func main() {
-	if err := RootCmd.Execute(); err != nil {
-		log.Error(err)
+	checkError(RootCmd.Execute())
+}
+
+// checkError labels fatal errors even when terminal colors are disabled.
+func checkError(err error) {
+	if err != nil {
+		log.Errorf("%s %s", red("[ERRO]"), err)
 		os.Exit(1)
 	}
 }
 
-func checkError(err error) {
+// checkSearchError makes an interrupted preflight distinct from a complete scan.
+func checkSearchError(opt *Options, err error) {
 	if err != nil {
-		log.Error(err)
-		os.Exit(1)
+		if !opt.Quiet && !opt.DryRun && !opt.ListPath {
+			fmt.Fprintln(os.Stderr) // Finish the in-place search progress line.
+		}
+		checkError(fmt.Errorf("search stopped; not all paths were checked; no files renamed: %w", err))
 	}
 }
 
@@ -718,6 +726,8 @@ Search paths:
   2. Moves finish before directory or symlink parents used by their paths are renamed, including link chains.
      Moves touching the same entry retain their original order. Cyclic dependencies are rejected.
   3. -l lists matching source paths without reading key-value inputs or applying replacements.
+  4. Fatal search or target-check errors stop the scan with exit status 1 before any files are renamed.
+     The error message states when not all paths were checked; -d does not suppress these errors.
 
 Three path filters:
 
@@ -916,7 +926,7 @@ Special cases of replacement string:
 			err = walk(opt, opCH, path, 1)
 			if err != nil {
 				close(opCH)
-				checkError(err)
+				checkSearchError(opt, err)
 			}
 		}
 		if !opt.Quiet && !opt.DryRun && !opt.ListPath {
@@ -1033,7 +1043,7 @@ func (op operation) String() string {
 // checkOperation checks an renaming operation
 func checkOperation(opt *Options, path string) (bool, operation) {
 	path, err := normalizePath(path)
-	checkError(err)
+	checkSearchError(opt, err)
 	dir, filename := filepath.Split(path)
 	var ext string
 	if opt.IgnoreExt {
@@ -1049,7 +1059,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		return true, operation{source: path, target: path, code: codeUnchanged}
 	}
 	source2, err := pathKey(path)
-	checkError(err)
+	checkSearchError(opt, err)
 	if opt.seenSources != nil {
 		if _, seen := opt.seenSources[source2]; seen {
 			return false, operation{}
@@ -1064,7 +1074,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		// A previous increment can wrap the largest supported integer. Reject
 		// that next value while still allowing a single use of the maximum.
 		if opt.StartNum < 0 {
-			checkError(fmt.Errorf("{nr} exceeds the maximum supported integer"))
+			checkSearchError(opt, fmt.Errorf("{nr} exceeds the maximum supported integer"))
 		}
 		r = reNR.ReplaceAllString(r, fmt.Sprintf(opt.NRFormat, opt.StartNum))
 		opt.StartNum++
@@ -1087,7 +1097,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 
 	// Do not clean away a symlink followed by ".." before resolving its parent.
 	target, err := normalizePath(dir + filename2)
-	checkError(err)
+	checkSearchError(opt, err)
 
 	if filename2 == "" {
 		return true, operation{path, target, codeMissingTarget}
@@ -1095,7 +1105,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 
 	// Equivalent spellings such as "a" and "./a" must not replace undo history.
 	target2, err := pathKey(target)
-	checkError(err)
+	checkSearchError(opt, err)
 	if source2 == target2 {
 		return true, operation{path, target, codeUnchanged}
 	}
@@ -1109,9 +1119,9 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		return true, operation{path, target, codeEndingWithSpace}
 	}
 
-	checkError(validateDirectoryMove(path, target))
+	checkSearchError(opt, validateDirectoryMove(path, target))
 	exists, err := targetExists(path, target)
-	checkError(err)
+	checkSearchError(opt, err)
 	if exists {
 		return true, operation{path, target, codeExisted}
 	}

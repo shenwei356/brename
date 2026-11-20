@@ -180,7 +180,7 @@ verify that behavior. Cross-compiling also does not run these filesystem checks.
 
 brename: a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.15.0
+Version: 2.15.1
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -201,6 +201,8 @@ Search paths:
   2. Moves finish before directory or symlink parents used by their paths are renamed, including link chains.
      Moves touching the same entry retain their original order. Cyclic dependencies are rejected.
   3. -l lists matching source paths without reading key-value inputs or applying replacements.
+  4. Fatal search or target-check errors stop the scan with exit status 1 before any files are renamed.
+     The error message states when not all paths were checked; -d does not suppress these errors.
 
 Three path filters:
 

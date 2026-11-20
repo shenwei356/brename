@@ -1,6 +1,7 @@
 # Changelog
 
 - v2.15.1
+    - fix: label fatal errors clearly and report when a search stops before all paths are checked, including during dry runs
     - fix: avoid false failures in packaging tests for the supported Linux and Windows 386 releases.
 
 - v2.15.0
