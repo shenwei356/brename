@@ -616,13 +616,31 @@ func getFileList(args []string) []string {
 		}
 		// Validate directory syntax before Clean can turn a file/ or file/.
 		// argument into a different, valid file path.
-		_, err := os.Lstat(path)
+		info, err := os.Lstat(path)
 		checkError(err)
+		if hasDirectorySuffix(path) && !info.IsDir() {
+			target, statErr := os.Stat(path)
+			if statErr != nil || !target.IsDir() {
+				checkError(fmt.Errorf("not a directory: %s", path))
+			}
+		}
 		normalized, err := normalizePath(path)
 		checkError(err)
 		files = append(files, normalized)
 	}
 	return files
+}
+
+func hasDirectorySuffix(path string) bool {
+	if path == "." || path == ".." {
+		return false
+	}
+	for _, sep := range []string{"/", string(os.PathSeparator)} {
+		if strings.HasSuffix(path, sep) || strings.HasSuffix(path, sep+".") {
+			return true
+		}
+	}
+	return false
 }
 
 func getFlagBool(cmd *cobra.Command, flag string) bool {
@@ -1061,11 +1079,15 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	source2, err := pathKey(path)
 	checkSearchError(opt, err)
 	if opt.seenSources != nil {
-		if _, seen := opt.seenSources[source2]; seen {
+		seenKey := source2
+		if opt.PathCaseInsensitive {
+			seenKey = strings.ToLower(source2)
+		}
+		if _, seen := opt.seenSources[seenKey]; seen {
 			return false, operation{}
 		}
 		// Deduplicate before expanding {nr}, including overlapping search roots.
-		opt.seenSources[source2] = struct{}{}
+		opt.seenSources[seenKey] = struct{}{}
 	}
 
 	r := opt.Replacement
