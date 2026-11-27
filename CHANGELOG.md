@@ -5,6 +5,12 @@
     - fix: identify directories from their metadata when scanning external drives, and avoid loading large files into memory when a shell wildcard includes them. [#14](https://github.com/shenwei356/brename/issues/14), [#30](https://github.com/shenwei356/brename/issues/30)
     - fix: label fatal errors clearly and report when a search stops before all paths are checked, including during dry runs
     - fix: avoid false failures in packaging tests for the supported Linux and Windows 386 releases.
+    - fix: handle case-only renames on volumes that preserve the old spelling on a direct rename. Overlapping case aliases are numbered once, undo restores the stored source spelling with `-w`, and case-insensitive rename checks protect the history filename even before the log exists.
+    - fix: reject a file passed as a directory (e.g., `file\.` on Windows) before renaming it.
+    - fix: keep both names and their enclosing directories available for retry when a forced undo fails. Preserve filenames that overlap the undo log separator and report ambiguous records in older logs before moving files.
+    - fix: detect conflicting file and directory destinations and known hard-link overwrites during rename checks, including dry runs. Move a directory into place before moving files into it.
+    - fix: sort numbers of any length consistently with `-N`, including when assigning `{nr}`. Numerically equal names are ordered by their original spelling.
+    - fix: match Unicode letters such as `Σ` and `ς` consistently in case-insensitive key-value lookups. Empty listings now produce zero lines, and quiet mode reports which target ends in a period or space.
 
 - v2.15.0
     - flag `-N/--nature-sort` now applies to renaming as well as listing. [#36](https://github.com/shenwei356/brename/issues/36)

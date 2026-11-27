@@ -28,13 +28,15 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
 	"github.com/shenwei356/go-logging"
-	"github.com/shenwei356/natsort"
 	"github.com/shenwei356/util/pathutil"
 	"github.com/shenwei356/xopen"
 	"github.com/spf13/cobra"
@@ -46,9 +48,6 @@ var log *logging.Logger
 var VERSION = "2.16.0"
 var app = "brename"
 var LastOpDetailFile = ".brename_detail.txt"
-
-// for detecting one case where two or more files are renamed to same new path
-var pathTree map[string]struct{}
 
 // Options is the struct containing all global options
 type Options struct {
@@ -103,7 +102,10 @@ type Options struct {
 	DisableUndo        bool
 	ClearOpDetailFiles bool
 
-	seenSources map[string]struct{} // Directory entries already considered for this rename run.
+	seenSources    entrySet            // Directory entries already considered for this rename run.
+	plannedTargets map[string]struct{} // New target entries reserved by this run.
+	sourceDir      string              // Last parent inspected for explicitly supplied case aliases.
+	sourceNames    map[string]string   // Stored spellings in that parent when -w is active.
 }
 
 // maxNumberWidth keeps padding within fmt's supported formatting range.
@@ -497,19 +499,19 @@ func init() {
 	RootCmd.Flags().BoolP("including-dir", "D", false, "rename directories")
 	RootCmd.Flags().BoolP("only-dir", "", false, "only rename directories")
 	RootCmd.Flags().IntP("max-depth", "", 0, "maximum depth for recursive search or --clear (0 for no limit)")
-	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case of -p/--pattern, -f/--include-filters and -F/--exclude-filters")
+	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case in the search pattern, path filters and key-value lookup")
 	RootCmd.Flags().Bool("unicode-nfc", false, "match filenames in Unicode Normalization Form C (NFC)")
 	RootCmd.Flags().BoolP("ignore-ext", "e", false, "ignore file extension. i.e., replacement does not change file extension")
 	RootCmd.Flags().BoolP("ignore-err", "E", false, "ignore directory reading errors")
 
-	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'`)
-	RootCmd.Flags().StringSliceP("skip-filters", "S", []string{`^\.`}, `skip file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -S "^\." for skipping files starting with a dot, but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'`)
-	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'`)
+	RootCmd.Flags().StringSliceP("include-filters", "f", []string{"."}, `include file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -f ".html" -f ".htm", but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -f '"A{2,}"'`)
+	RootCmd.Flags().StringSliceP("skip-filters", "S", []string{`^\.`}, `skip file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -S "^\." for skipping files starting with a dot, but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -S '"A{2,}"'`)
+	RootCmd.Flags().StringSliceP("exclude-filters", "F", []string{}, `exclude file filter(s) (regular expression, NOT wildcard). multiple values supported, e.g., -F ".html" -F ".htm", but ATTENTION: each comma in the filter is treated as the separator of multiple filters, please use double quotation marks for patterns containing comma, e.g., -F '"A{2,}"'`)
 
 	RootCmd.Flags().BoolP("list", "l", false, `only list paths that match pattern, without planning renames`)
 	RootCmd.Flags().StringP("list-sep", "s", "\n", `separator for list of found paths`)
 	RootCmd.Flags().BoolP("list-abs", "a", false, `list absolute path, using along with -l/--list`)
-	RootCmd.Flags().BoolP("nature-sort", "N", false, `sort paths in nature order for renaming or listing`)
+	RootCmd.Flags().BoolP("nature-sort", "N", false, `sort digit runs numerically when renaming or listing`)
 
 	RootCmd.Flags().StringP("kv-file", "k", "",
 		`tab-delimited key-value file for replacing key with value when using "{kv}" in -r (--replacement)`)
@@ -583,8 +585,6 @@ Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
 
 Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
 `)
-
-	pathTree = make(map[string]struct{}, 1024)
 }
 
 func main() {
@@ -621,8 +621,17 @@ func getFileList(args []string) []string {
 		}
 		// Validate directory syntax before Clean can turn a file/ or file/.
 		// argument into a different, valid file path.
-		_, err := os.Lstat(path)
+		info, err := os.Lstat(path)
 		checkError(err)
+		_, leaf := filepath.Split(path)
+		if !info.IsDir() && (leaf == "" || leaf == "." || leaf == "..") {
+			// Windows can discard a trailing dot component before looking up the file.
+			dir, err := os.Stat(path)
+			checkError(err)
+			if !dir.IsDir() {
+				checkError(fmt.Errorf("not a directory: %s", path))
+			}
+		}
 		normalized, err := normalizePath(path)
 		checkError(err)
 		files = append(files, normalized)
@@ -728,9 +737,12 @@ Warnings:
 Search paths:
   1. Overlapping inputs rename each source entry once; {nr} follows the first encounter.
      Empty path arguments are invalid; omit paths or use . for the current directory.
+     With -w, undo records the stored spelling of explicitly named entries when available.
   2. Moves finish before directory or symlink parents used by their paths are renamed, including link chains.
+     A directory moving to a new path is placed before files moving into it.
      Moves touching the same entry retain their original order. Cyclic dependencies are rejected.
   3. -l lists matching source paths without reading key-value inputs or applying replacements.
+     An empty list produces no output.
   4. Fatal search or target-check errors stop the scan with exit status 1 before any files are renamed.
      The error message states when not all paths were checked; -d does not suppress these errors.
 
@@ -751,7 +763,7 @@ Three path filters:
   1. Paths starting with "." are ignored by default, disable this with -S "".
   2. These options support multiple values, e.g., -f ".html" -f ".htm".
      But ATTENTION: each comma in filters is treated as a separator of multiple filters.
-     Please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'
+     Please use double quotation marks for patterns containing comma, e.g., -f '"A{2,}"'
   3. The three filters are performed in order of -S, -F, -f.
   4. -F/--exclude-filters is prefered for excluding path, cause it has no default value.
      Setting -S/--skip-filters will overwrite its default value.
@@ -762,7 +774,7 @@ Undo and history:
   1. Successful moves are recorded even if a later move fails. Undo failures remain in the log for retry.
      Malformed records are rejected before any undo move.
   2. -U continues independent undo operations after failures and returns a nonzero status if any fail.
-     Paths depending on a failed restore are skipped, including through directory symlinks.
+     Failed restores keep both paths and the directories and links needed to retry them.
   3. -d previews renaming, undo, and --clear without changing files. Rename preview checks undo log paths;
      undo preview lists recorded operations.
   4. History stays in .brename_detail.txt. Existing logs remain readable, and ordinary filenames
@@ -871,18 +883,14 @@ Special cases of replacement string:
 							log.Errorf("  %s\n", op)
 						case 1: // overwrite
 							if verbose {
-								log.Warningf("  %s (will be overwrited)\n", op)
+								log.Warningf("  %s (will be overwritten)\n", op)
 							}
 						case 2: // no renaming
 							if verbose {
-								log.Warningf("  %s (will NOT be overwrited)\n", op)
+								log.Warningf("  %s (will NOT be overwritten)\n", op)
 							}
 						}
-					case codeEndingWithPeriod, codeEndingWithSpace:
-						if verbose {
-							log.Errorf("  %s\n", op)
-						}
-					case codeMissingTarget:
+					case codeEndingWithPeriod, codeEndingWithSpace, codeMissingTarget:
 						log.Errorf("  %s\n", op)
 					}
 				}
@@ -910,7 +918,7 @@ Special cases of replacement string:
 					continue
 				}
 			}
-			if opt.ListPath {
+			if opt.ListPath && !first {
 				_, err = fmt.Println()
 				checkError(err)
 			}
@@ -920,7 +928,7 @@ Special cases of replacement string:
 		paths := getFileList(args)
 		if len(paths) > 1 {
 			// A single traversal already visits each entry once, in postorder.
-			opt.seenSources = make(map[string]struct{})
+			opt.seenSources = make(entrySet)
 		}
 
 		if !opt.Quiet && opt.Verbose == 0 {
@@ -977,6 +985,9 @@ Special cases of replacement string:
 			ops, err = orderOperations(ops)
 			checkError(err)
 		}
+		if opt.OverwriteMode == 1 {
+			checkError(validateHardlinkOverwrites(ops))
+		}
 		if opt.DryRun || (!opt.Quiet && opt.Verbose == 0) || n == 0 {
 			log.Info()
 			log.Infof("%d path(s) to be renamed", n)
@@ -989,7 +1000,7 @@ Special cases of replacement string:
 			// Preview the same history-path restrictions as execution without
 			// creating a journal or modifying an existing log.
 			if !opt.DisableUndo {
-				checkError(validateHistoryPath(opt.LastOpDetailFile, ops))
+				checkError(validateHistoryPath(opt.LastOpDetailFile, ops, opt.PathCaseInsensitive))
 			}
 			return
 		}
@@ -1061,8 +1072,40 @@ func matchText(s string, unicodeNFC bool) string {
 	return s
 }
 
+// storedSourcePath keeps the on-disk spelling for undo when the shell supplies
+// a differently cased name. Entries discovered by ReadDir already have it.
+func (opt *Options) storedSourcePath(path string) string {
+	dir, name := filepath.Split(path)
+	if name == "" || name == "." || name == ".." {
+		return path
+	}
+	if opt.sourceNames == nil || opt.sourceDir != dir {
+		opt.sourceDir = dir
+		opt.sourceNames = make(map[string]string)
+		entries, err := os.ReadDir(filepath.Dir(path))
+		if err != nil {
+			return path // Explicit files can be accessible in a non-listable directory.
+		}
+		for _, entry := range entries {
+			key := foldKey(entry.Name())
+			if _, ok := opt.sourceNames[key]; ok {
+				opt.sourceNames[key] = "" // Distinct case-sensitive entries.
+			} else {
+				opt.sourceNames[key] = entry.Name()
+			}
+		}
+	}
+	if actual := opt.sourceNames[foldKey(name)]; actual != "" && actual != name {
+		candidate := dir + actual
+		if same, _ := sameFileEntries(path, candidate); same {
+			return candidate
+		}
+	}
+	return path
+}
+
 // checkOperation checks a rename operation.
-func checkOperation(opt *Options, path string) (bool, operation) {
+func checkOperation(opt *Options, path string, explicit bool) (bool, operation) {
 	path, err := normalizePath(path)
 	checkSearchError(opt, err)
 	dir, filename := filepath.Split(path)
@@ -1080,14 +1123,14 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 	if opt.ListPath {
 		return true, operation{source: path, target: path, code: codeUnchanged}
 	}
+	if explicit && opt.PathCaseInsensitive {
+		path = opt.storedSourcePath(path)
+	}
 	source2, err := pathKey(path)
 	checkSearchError(opt, err)
-	if opt.seenSources != nil {
-		if _, seen := opt.seenSources[source2]; seen {
-			return false, operation{}
-		}
-		// Deduplicate before expanding {nr}, including overlapping search roots.
-		opt.seenSources[source2] = struct{}{}
+	// Deduplicate entries, including differently cased aliases, before numbering.
+	if opt.seenSources != nil && !opt.seenSources.add(source2) {
+		return false, operation{}
 	}
 
 	r := opt.Replacement
@@ -1150,15 +1193,15 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 
 	// Compare resolved parents while keeping the final directory entry itself.
 	if opt.PathCaseInsensitive {
-		target2 = strings.ToLower(target2)
+		target2 = foldKey(target2)
 	}
-	if pathTree == nil {
-		pathTree = make(map[string]struct{}, 1024)
+	if opt.plannedTargets == nil {
+		opt.plannedTargets = make(map[string]struct{}, 1024)
 	}
-	if _, ok := pathTree[target2]; ok {
+	if _, ok := opt.plannedTargets[target2]; ok {
 		return true, operation{path, target, codeOverwriteNewPath}
 	}
-	pathTree[target2] = struct{}{}
+	opt.plannedTargets[target2] = struct{}{}
 
 	return true, operation{path, target, codeOK}
 }
@@ -1179,7 +1222,7 @@ func replaceWithKVs(opt *Options, filename, replacement string) (string, bool) {
 		}
 		lookupKey := key
 		if opt.IgnoreCase {
-			lookupKey = strings.ToLower(lookupKey)
+			lookupKey = foldKey(lookupKey)
 		}
 		value, ok := opt.KVs[lookupKey]
 		if !ok {
@@ -1277,6 +1320,40 @@ func clear(opt *Options, path string, depth int) error {
 	return nil
 }
 
+// nameChunk splits off a run of ASCII digits or a run of other filename bytes.
+func nameChunk(s string) (chunk, rest string, digits bool) {
+	digits = s[0] >= '0' && s[0] <= '9'
+	i := 1
+	for i < len(s) && (s[i] >= '0' && s[i] <= '9') == digits {
+		i++
+	}
+	return s[:i], s[i:], digits
+}
+
+// compareNatural compares numeric runs by magnitude without integer overflow.
+// Equivalent numbers use the original spelling to break ties deterministically.
+func compareNatural(a, b string) int {
+	left, right := a, b
+	for left != "" && right != "" {
+		x, tailX, digitX := nameChunk(left)
+		y, tailY, digitY := nameChunk(right)
+		if digitX && digitY {
+			x, y = strings.TrimLeft(x, "0"), strings.TrimLeft(y, "0")
+			if len(x) != len(y) {
+				return len(x) - len(y)
+			}
+		}
+		if order := strings.Compare(x, y); order != 0 {
+			return order
+		}
+		left, right = tailX, tailY
+	}
+	if len(left) != len(right) {
+		return len(left) - len(right)
+	}
+	return strings.Compare(a, b)
+}
+
 // walk recursively search file to rename
 func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 	path, err := normalizePath(path)
@@ -1311,7 +1388,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 		if opt.OnlyDir || ignore(opt, filepath.Base(path)) {
 			return nil
 		}
-		if ok, op := checkOperation(opt, path); ok {
+		if ok, op := checkOperation(opt, path, depth == 1); ok {
 			opCh <- op
 		}
 		return nil
@@ -1349,14 +1426,14 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 
 	if !opt.OnlyDir {
 		if opt.NatureSort {
-			natsort.Sort(_files)
+			slices.SortFunc(_files, compareNatural)
 		}
 		for _, filename := range _files {
 			if ignore(opt, filename) {
 				continue
 			}
 			fileFullPath := filepath.Join(path, filename)
-			if ok, op := checkOperation(opt, fileFullPath); ok {
+			if ok, op := checkOperation(opt, fileFullPath, false); ok {
 				opCh <- op
 			}
 		}
@@ -1364,7 +1441,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 
 	// sub directory
 	if opt.NatureSort {
-		natsort.Sort(_dirs)
+		slices.SortFunc(_dirs, compareNatural)
 	}
 	for _, filename := range _dirs {
 		if excluded(opt, matchText(filename, opt.UnicodeNFC)) {
@@ -1380,7 +1457,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 		}
 		// rename directories
 		if (opt.OnlyDir || opt.IncludingDir) && !ignore(opt, filename) {
-			if ok, op := checkOperation(opt, fileFullPath); ok {
+			if ok, op := checkOperation(opt, fileFullPath, false); ok {
 				opCh <- op
 			}
 		}
@@ -1392,12 +1469,40 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 
 	// rename the given root directory
 	if (opt.OnlyDir || opt.IncludingDir) && !ignore(opt, filepath.Base(path)) {
-		if ok, op := checkOperation(opt, path); ok {
+		if ok, op := checkOperation(opt, path, depth == 1); ok {
 			opCh <- op
 		}
 	}
 
 	return nil
+}
+
+// foldKey gives regexp-equivalent letters the same lookup key, including
+// multi-member folds such as Σ, σ and ς. Untouched bytes remain verbatim.
+func foldKey(key string) string {
+	var folded strings.Builder
+	last := 0
+	for i, r := range key {
+		c := r
+		if r >= utf8.RuneSelf {
+			for next := unicode.SimpleFold(r); next != r; next = unicode.SimpleFold(next) {
+				c = min(c, next)
+			}
+		}
+		if c >= 'A' && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if c != r {
+			folded.WriteString(key[last:i])
+			folded.WriteRune(c)
+			last = i + utf8.RuneLen(r)
+		}
+	}
+	if last == 0 {
+		return key
+	}
+	folded.WriteString(key[last:])
+	return folded.String()
 }
 
 // readKVs reads a tab-delimited file containing key-value pairs
@@ -1425,7 +1530,7 @@ func readKVs(file string, ignoreCase, unicodeNFC bool) (kvs map[string]string, e
 		if len(items) >= 2 {
 			key := matchText(items[0], unicodeNFC)
 			if ignoreCase {
-				key = strings.ToLower(key)
+				key = foldKey(key)
 			}
 			kvs[key] = items[1]
 		}

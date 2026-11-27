@@ -6,7 +6,6 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/mattn/go-colorable v0.1.16
 	github.com/shenwei356/go-logging v0.0.0-20171012171522-c6b9702d88ba
-	github.com/shenwei356/natsort v0.0.0-20220117010048-580176ad49fb
 	github.com/shenwei356/util v0.5.7
 	github.com/shenwei356/xopen v0.4.1
 	github.com/spf13/cobra v1.10.2

@@ -21,6 +21,12 @@ const historyDelimiter = "\t_shenwei356-brename_\t"
 // cannot accidentally undo only the ordinary records of a mixed-format log.
 func historyNeedsQuoting(ops []operation) bool {
 	for _, op := range ops {
+		// The tabs at both ends of the delimiter can also complete a second
+		// separator across a field boundary.
+		if strings.HasSuffix(op.source, strings.TrimSuffix(historyDelimiter, "\t")) ||
+			strings.HasPrefix(op.target, strings.TrimPrefix(historyDelimiter, "\t")) {
+			return true
+		}
 		if strings.HasPrefix(op.source, "#") {
 			return true // Older readers treat these source names as comments.
 		}
@@ -37,7 +43,7 @@ func historyNeedsQuoting(ops []operation) bool {
 }
 
 // validateHistoryPath rejects special files and aliases of renamed entries.
-func validateHistoryPath(path string, ops []operation) error {
+func validateHistoryPath(path string, ops []operation, ignoreCase bool) error {
 	info, err := os.Lstat(path)
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -48,6 +54,9 @@ func validateHistoryPath(path string, ops []operation) error {
 	key, err := pathKey(path)
 	if err != nil {
 		return err
+	}
+	if ignoreCase {
+		key = foldKey(key)
 	}
 	for _, op := range ops {
 		for _, entry := range []string{op.source, op.target} {
@@ -60,10 +69,16 @@ func validateHistoryPath(path string, ops []operation) error {
 					return err
 				}
 			}
-			entryInfo, statErr := os.Lstat(entry)
-			// The log must remain a file; a target beneath it would create a
-			// directory at the reserved name before the log can be published.
-			if containsPath(key, entryKey) || (info != nil && statErr == nil && os.SameFile(info, entryInfo)) {
+			if ignoreCase {
+				entryKey = foldKey(entryKey)
+			}
+			// A new log also reserves its name against targets beneath it.
+			conflict := containsPath(key, entryKey)
+			if !conflict && info != nil {
+				entryInfo, statErr := os.Lstat(entry)
+				conflict = statErr == nil && os.SameFile(info, entryInfo)
+			}
+			if conflict {
 				return fmt.Errorf("undo log conflicts with renamed path: %s", entry)
 			}
 		}
@@ -115,7 +130,7 @@ func stageHistory(path string, history []operation, quoted bool) (*os.File, erro
 
 // readHistory validates the entire log before any undo operation is attempted.
 func readHistory(path string) (history []operation, err error) {
-	if err := validateHistoryPath(path, nil); err != nil {
+	if err := validateHistoryPath(path, nil, false); err != nil {
 		return nil, err
 	}
 	fh, err := os.Open(path)
@@ -154,6 +169,9 @@ func readHistory(path string) (history []operation, err error) {
 			} else {
 				parts := strings.Split(line, historyDelimiter)
 				if len(parts) == 2 {
+					if strings.Index(line, historyDelimiter) != strings.LastIndex(line, historyDelimiter) {
+						return nil, fmt.Errorf("ambiguous undo separator at line %d", lineNumber)
+					}
 					// A leading '#' can be part of a valid legacy filename.
 					source, target = parts[0], parts[1]
 				} else if strings.HasPrefix(line, "#") {
@@ -195,7 +213,7 @@ func undoOperations(opt *Options) error {
 	if err != nil {
 		return err
 	}
-	if err := validateHistoryPath(opt.LastOpDetailFile, history); err != nil {
+	if err := validateHistoryPath(opt.LastOpDetailFile, history, opt.PathCaseInsensitive); err != nil {
 		return err
 	}
 	var journal *os.File // Reserve recovery space before changing any file names.
@@ -214,7 +232,7 @@ func undoOperations(opt *Options) error {
 		}()
 	}
 	completed := make([]bool, len(history)) // Only successful moves leave the retry log.
-	var blocked []string                    // Failed restores leave earlier paths at their moved location.
+	var blocked undoBlockers                // Entries and directory links needed to retry failed restores.
 	n := 0
 	var firstErr error
 	for i := len(history) - 1; i >= 0; i-- {
@@ -223,10 +241,10 @@ func undoOperations(opt *Options) error {
 			log.Infof("  [UNDO] %s -> %s", op.target, op.source)
 			continue
 		}
-		if undoDependsOn(op, blocked) {
-			log.Errorf("  [SKIPPED] %s -> %s: an enclosing path could not be restored", op.target, op.source)
+		if blocked.dependsOn(op) {
+			log.Errorf("  [SKIPPED] %s -> %s: depends on a failed restore", op.target, op.source)
 			// Skipping this restore also blocks earlier moves that need its source.
-			blocked = append(blocked, op.source)
+			blocked.add(op)
 			continue
 		}
 		err := validateDirectoryMove(op.target, op.source)
@@ -238,7 +256,7 @@ func undoOperations(opt *Options) error {
 			}
 		}
 		if err == nil {
-			err = os.Rename(op.target, op.source)
+			err = renameEntry(op.target, op.source)
 		}
 		if err != nil {
 			log.Errorf("  [ERROR] %s -> %s: %s", op.target, op.source, err)
@@ -248,7 +266,7 @@ func undoOperations(opt *Options) error {
 			if !opt.ForceUndo {
 				break
 			}
-			blocked = append(blocked, op.source)
+			blocked.add(op)
 			continue
 		}
 		completed[i] = true
@@ -308,45 +326,37 @@ func undoOperations(opt *Options) error {
 	return firstErr
 }
 
-// undoDependsOn keeps forced undo away from unrelated entries behind a failed
-// restore. Dependencies include directory symlinks used along a recorded path.
-func undoDependsOn(op operation, blocked []string) bool {
-	if len(blocked) == 0 {
-		return false
-	}
-	parents := make([]string, 0, len(blocked))
-	for _, parent := range blocked {
-		key, err := pathKey(parent)
-		if err != nil {
-			key, _ = filepath.Abs(parent)
-		}
-		parents = append(parents, key)
-	}
+// undoBlockers protects both endpoints of failed restores, and the directories
+// and links needed to reach them. Siblings can still be restored independently.
+type undoBlockers struct {
+	entries entrySet
+	parents entrySet
+}
 
-	dependsOn := func(key string) bool {
-		for _, parent := range parents {
-			if containsPath(parent, key) {
-				return true
-			}
-		}
+// add reserves paths for a failed or skipped restore.
+func (b *undoBlockers) add(op operation) {
+	if b.entries == nil {
+		b.entries = make(entrySet)
+		b.parents = make(entrySet)
+	}
+	visitOperationPaths(op, func(key string) bool {
+		b.entries.add(key)
+		return false
+	}, func(key string) bool {
+		b.parents.add(key)
+		return false
+	})
+}
+
+// dependsOn checks whether this move needs a blocked entry or would move
+// a directory or symlink still needed for a retry.
+func (b *undoBlockers) dependsOn(op operation) bool {
+	if len(b.entries) == 0 {
 		return false
 	}
-	for _, path := range []string{op.source, op.target} {
-		key, err := pathKey(path)
-		if err != nil {
-			key, _ = filepath.Abs(path)
-		}
-		if dependsOn(key) {
-			return true
-		}
-		// Rename moves the final symlink itself; only parent links are followed.
-		parent, _ := filepath.Split(path)
-		if parent == "" {
-			parent = "."
-		}
-		if visitDirectoryEntries(parent, dependsOn) {
-			return true
-		}
-	}
-	return false
+	return visitOperationPaths(op, func(key string) bool {
+		return b.entries.contains(key) || b.parents.contains(key)
+	}, func(key string) bool {
+		return b.entries.contains(key)
+	})
 }

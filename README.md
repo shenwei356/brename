@@ -198,9 +198,12 @@ Warnings:
 Search paths:
   1. Overlapping inputs rename each source entry once; {nr} follows the first encounter.
      Empty path arguments are invalid; omit paths or use . for the current directory.
+     With -w, undo records the stored spelling of explicitly named entries when available.
   2. Moves finish before directory or symlink parents used by their paths are renamed, including link chains.
+     A directory moving to a new path is placed before files moving into it.
      Moves touching the same entry retain their original order. Cyclic dependencies are rejected.
   3. -l lists matching source paths without reading key-value inputs or applying replacements.
+     An empty list produces no output.
   4. Fatal search or target-check errors stop the scan with exit status 1 before any files are renamed.
      The error message states when not all paths were checked; -d does not suppress these errors.
 
@@ -221,7 +224,7 @@ Three path filters:
   1. Paths starting with "." are ignored by default, disable this with -S "".
   2. These options support multiple values, e.g., -f ".html" -f ".htm".
      But ATTENTION: each comma in filters is treated as a separator of multiple filters.
-     Please use double quotation marks for patterns containing comma, e.g., -p '"A{2,}"'
+     Please use double quotation marks for patterns containing comma, e.g., -f '"A{2,}"'
   3. The three filters are performed in order of -S, -F, -f.
   4. -F/--exclude-filters is prefered for excluding path, cause it has no default value.
      Setting -S/--skip-filters will overwrite its default value.
@@ -232,7 +235,7 @@ Undo and history:
   1. Successful moves are recorded even if a later move fails. Undo failures remain in the log for retry.
      Malformed records are rejected before any undo move.
   2. -U continues independent undo operations after failures and returns a nonzero status if any fail.
-     Paths depending on a failed restore are skipped, including through directory symlinks.
+     Failed restores keep both paths and the directories and links needed to retry them.
   3. -d previews renaming, undo, and --clear without changing files. Rename preview checks undo log paths;
      undo preview lists recorded operations.
   4. History stays in .brename_detail.txt. Existing logs remain readable, and ordinary filenames
@@ -311,17 +314,17 @@ Flags:
                                   values supported, e.g., -F ".html" -F ".htm", but ATTENTION: each
                                   comma in the filter is treated as the separator of multiple filters,
                                   please use double quotation marks for patterns containing comma, e.g.,
-                                  -p '"A{2,}"'
+                                  -F '"A{2,}"'
   -U, --force-undo                continue undo after failures without overwriting existing paths
   -h, --help                      help for brename
-  -i, --ignore-case               ignore case of -p/--pattern, -f/--include-filters and -F/--exclude-filters
+  -i, --ignore-case               ignore case in the search pattern, path filters and key-value lookup
   -E, --ignore-err                ignore directory reading errors
   -e, --ignore-ext                ignore file extension. i.e., replacement does not change file extension
   -f, --include-filters strings   include file filter(s) (regular expression, NOT wildcard). multiple
                                   values supported, e.g., -f ".html" -f ".htm", but ATTENTION: each
                                   comma in the filter is treated as the separator of multiple filters,
                                   please use double quotation marks for patterns containing comma, e.g.,
-                                  -p '"A{2,}"' (default [.])
+                                  -f '"A{2,}"' (default [.])
   -D, --including-dir             rename directories
   -K, --keep-key                  keep the key as value when no value found for the key
   -I, --key-capt-idx int          capture variable index of key (1-based) (default 1)
@@ -332,7 +335,7 @@ Flags:
   -a, --list-abs                  list absolute path, using along with -l/--list
   -s, --list-sep string           separator for list of found paths (default "\n")
       --max-depth int             maximum depth for recursive search or --clear (0 for no limit)
-  -N, --nature-sort               sort paths in nature order for renaming or listing
+  -N, --nature-sort               sort digit runs numerically when renaming or listing
       --nr-width int              minimum width for {nr} (1-1000000). e.g., format "1" as "001" with
                                   --nr-width 3 (default 1)
       --only-dir                  only rename directories
@@ -349,7 +352,7 @@ Flags:
                                   values supported, e.g., -S "^\." for skipping files starting with a
                                   dot, but ATTENTION: each comma in the filter is treated as the
                                   separator of multiple filters, please use double quotation marks for
-                                  patterns containing comma, e.g., -p '"A{2,}"' (default [^\.])
+                                  patterns containing comma, e.g., -S '"A{2,}"' (default [^\.])
   -n, --start-num int             starting number when using {nr} in replacement (default 1)
   -u, --undo                      undo the last rename operation; retain failed entries for retry
       --unicode-nfc               match filenames in Unicode Normalization Form C (NFC)
@@ -745,8 +748,8 @@ Take this directory as an example (run `generate-example-folder.sh` to generate 
             $ brename -p 386 -r amd64 -d -o 1
             Searching for paths to rename...
 
-              [new path existed] brename_linux_386.tar.gz -> brename_linux_amd64.tar.gz (will be overwrited)
-              [new path existed] brename_windows_386.exe.tar.gz -> brename_windows_amd64.exe.tar.gz (will be overwrited)
+              [new path existed] brename_linux_386.tar.gz -> brename_linux_amd64.tar.gz (will be overwritten)
+              [new path existed] brename_windows_386.exe.tar.gz -> brename_windows_amd64.exe.tar.gz (will be overwritten)
 
             2 path(s) to be renamed
 
@@ -755,8 +758,8 @@ Take this directory as an example (run `generate-example-folder.sh` to generate 
             $ brename -p 386 -r amd64 -d -o 2
             Searching for paths to rename...
 
-              [new path existed] brename_linux_386.tar.gz -> brename_linux_amd64.tar.gz (will NOT be overwrited)
-              [new path existed] brename_windows_386.exe.tar.gz -> brename_windows_amd64.exe.tar.gz (will NOT be overwrited)
+              [new path existed] brename_linux_386.tar.gz -> brename_linux_amd64.tar.gz (will NOT be overwritten)
+              [new path existed] brename_windows_386.exe.tar.gz -> brename_windows_amd64.exe.tar.gz (will NOT be overwritten)
 
             0 path(s) to be renamed
 

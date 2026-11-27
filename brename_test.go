@@ -124,15 +124,13 @@ func TestCodeString(t *testing.T) {
 }
 
 func TestCheckOperation_BasicReplacement(t *testing.T) {
-	pathTree = make(map[string]struct{})
-
 	opt := &Options{
 		Pattern:     `file_(\d+)`,
 		PatternRe:   regexp.MustCompile(`file_(\d+)`),
 		Replacement: `doc_$1`,
 	}
 
-	ok, op := checkOperation(opt, filepath.Join("test_dir", "file_123.txt"))
+	ok, op := checkOperation(opt, filepath.Join("test_dir", "file_123.txt"), false)
 	if !ok {
 		t.Fatalf("expected checkOperation to return true")
 	}
@@ -147,8 +145,6 @@ func TestCheckOperation_BasicReplacement(t *testing.T) {
 }
 
 func TestCheckOperation_IgnoreExt(t *testing.T) {
-	pathTree = make(map[string]struct{})
-
 	opt := &Options{
 		Pattern:     `.*`,
 		PatternRe:   regexp.MustCompile(`.*`),
@@ -156,7 +152,7 @@ func TestCheckOperation_IgnoreExt(t *testing.T) {
 		IgnoreExt:   true,
 	}
 
-	ok, op := checkOperation(opt, filepath.Join("folder", "sample.tar.gz"))
+	ok, op := checkOperation(opt, filepath.Join("folder", "sample.tar.gz"), false)
 	if !ok {
 		t.Fatalf("expected checkOperation to return true")
 	}
@@ -168,8 +164,6 @@ func TestCheckOperation_IgnoreExt(t *testing.T) {
 }
 
 func TestCheckOperation_NumberReplacement(t *testing.T) {
-	pathTree = make(map[string]struct{})
-
 	opt := &Options{
 		Pattern:       `test`,
 		PatternRe:     regexp.MustCompile(`test`),
@@ -179,7 +173,7 @@ func TestCheckOperation_NumberReplacement(t *testing.T) {
 		NRFormat:      "%03d",
 	}
 
-	ok, op1 := checkOperation(opt, filepath.Join("dir", "test_a.txt"))
+	ok, op1 := checkOperation(opt, filepath.Join("dir", "test_a.txt"), false)
 	if !ok || op1.code != codeOK {
 		t.Fatalf("op1 failed: %v", op1)
 	}
@@ -188,7 +182,7 @@ func TestCheckOperation_NumberReplacement(t *testing.T) {
 		t.Errorf("got target %q, want %q", op1.target, expected1)
 	}
 
-	ok, op2 := checkOperation(opt, filepath.Join("dir", "test_b.txt"))
+	ok, op2 := checkOperation(opt, filepath.Join("dir", "test_b.txt"), false)
 	if !ok || op2.code != codeOK {
 		t.Fatalf("op2 failed: %v", op2)
 	}
@@ -199,8 +193,6 @@ func TestCheckOperation_NumberReplacement(t *testing.T) {
 }
 
 func TestCheckOperation_KVReplacement(t *testing.T) {
-	pathTree = make(map[string]struct{})
-
 	opt := &Options{
 		Pattern:       `sample_(\w+)`,
 		PatternRe:     regexp.MustCompile(`sample_(\w+)`),
@@ -213,7 +205,7 @@ func TestCheckOperation_KVReplacement(t *testing.T) {
 		},
 	}
 
-	ok, op := checkOperation(opt, "sample_alpha.txt")
+	ok, op := checkOperation(opt, "sample_alpha.txt", false)
 	if !ok || op.code != codeOK {
 		t.Fatalf("op failed: %v", op)
 	}
@@ -223,7 +215,7 @@ func TestCheckOperation_KVReplacement(t *testing.T) {
 
 	// Missing key with KeepKey: true
 	opt.KeepKey = true
-	ok, opMissing := checkOperation(opt, "sample_gamma.txt")
+	ok, opMissing := checkOperation(opt, "sample_gamma.txt", false)
 	if !ok || opMissing.code != codeOK {
 		t.Fatalf("opMissing failed: %v", opMissing)
 	}
@@ -233,15 +225,13 @@ func TestCheckOperation_KVReplacement(t *testing.T) {
 }
 
 func TestCheckOperation_ValidationEdgeCases(t *testing.T) {
-	pathTree = make(map[string]struct{})
-
 	// Target ending with period
 	optPeriod := &Options{
 		Pattern:     `txt`,
 		PatternRe:   regexp.MustCompile(`txt`),
 		Replacement: `txt.`,
 	}
-	_, opPeriod := checkOperation(optPeriod, "hello.txt")
+	_, opPeriod := checkOperation(optPeriod, "hello.txt", false)
 	if opPeriod.code != codeEndingWithPeriod {
 		t.Errorf("got code %v, want codeEndingWithPeriod", opPeriod.code)
 	}
@@ -252,7 +242,7 @@ func TestCheckOperation_ValidationEdgeCases(t *testing.T) {
 		PatternRe:   regexp.MustCompile(`txt`),
 		Replacement: `txt `,
 	}
-	_, opSpace := checkOperation(optSpace, "hello.txt")
+	_, opSpace := checkOperation(optSpace, "hello.txt", false)
 	if opSpace.code != codeEndingWithSpace {
 		t.Errorf("got code %v, want codeEndingWithSpace", opSpace.code)
 	}
@@ -263,7 +253,7 @@ func TestCheckOperation_ValidationEdgeCases(t *testing.T) {
 		PatternRe:   regexp.MustCompile(`foo`),
 		Replacement: `foo`,
 	}
-	_, opUnchanged := checkOperation(optUnchanged, "foo.txt")
+	_, opUnchanged := checkOperation(optUnchanged, "foo.txt", false)
 	if opUnchanged.code != codeUnchanged {
 		t.Errorf("got code %v, want codeUnchanged", opUnchanged.code)
 	}
@@ -274,28 +264,26 @@ func TestCheckOperation_ValidationEdgeCases(t *testing.T) {
 		PatternRe:   regexp.MustCompile(`.*`),
 		Replacement: ``,
 	}
-	_, opEmpty := checkOperation(optEmpty, "foo")
+	_, opEmpty := checkOperation(optEmpty, "foo", false)
 	if opEmpty.code != codeMissingTarget {
 		t.Errorf("got code %v, want codeMissingTarget", opEmpty.code)
 	}
 }
 
 func TestCheckOperation_CollisionDetection(t *testing.T) {
-	pathTree = make(map[string]struct{})
-
 	opt := &Options{
 		Pattern:     `foo\d+`,
 		PatternRe:   regexp.MustCompile(`foo\d+`),
 		Replacement: `same_target`,
 	}
 
-	ok1, op1 := checkOperation(opt, "foo1.txt")
+	ok1, op1 := checkOperation(opt, "foo1.txt", false)
 	if !ok1 || op1.code != codeOK {
 		t.Fatalf("first op should be OK, got %v", op1.code)
 	}
 
 	// Second file renaming to the same target should trigger codeOverwriteNewPath
-	ok2, op2 := checkOperation(opt, "foo2.txt")
+	ok2, op2 := checkOperation(opt, "foo2.txt", false)
 	if !ok2 || op2.code != codeOverwriteNewPath {
 		t.Errorf("second op should be codeOverwriteNewPath, got %v", op2.code)
 	}
@@ -454,13 +442,13 @@ func TestCLIUnicodeFilters(t *testing.T) {
 	writeTestFile(t, filepath.Join(dir, sub, "item"), "")
 	for _, flag := range []string{"-S", "-F"} {
 		out, err := runCLI(t, dir, "--unicode-nfc", "-Rl", "-p", "item", flag, "^café$")
-		if err != nil || out != "\n" {
+		if err != nil || out != "" {
 			t.Fatalf("%s: %v: %q", flag, err, out)
 		}
 	}
 	// An explicit argument retains its spelling even on normalizing filesystems.
 	out, err := runCLI(t, dir, "-lD", "-p", "^café$", sub)
-	if err != nil || out != "\n" {
+	if err != nil || out != "" {
 		t.Fatalf("default matching: %v: %q", err, out)
 	}
 }
@@ -906,5 +894,45 @@ func TestCLIKeepKeyLiteralDollars(t *testing.T) {
 			}
 			requireFile(t, filepath.Join(dir, source), "original")
 		})
+	}
+}
+
+func TestCLIQuietInvalidTarget(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "file"), "original")
+	out, err := runCLI(t, dir, "-q", "-p", "^file$", "-r", "invalid.")
+	if err == nil || !strings.Contains(out, "file -> invalid.") || !strings.Contains(out, "ending with a period") {
+		t.Fatalf("missing target error in quiet mode: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "file"), "original")
+}
+
+func TestCLIUnicodeCaseInsensitiveKV(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "ς"), "original")
+	writeTestFile(t, filepath.Join(dir, "keys"), "Σ\tsigma\n")
+	out, err := runCLI(t, dir, "-i", "-p", "^(Σ)$", "-r", "{kv}", "-k", "keys", "ς")
+	if err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "sigma"), "original")
+}
+
+// Natural numbering must use the same order on 32- and 64-bit hosts.
+func TestCLINaturalSortLongNumbers(t *testing.T) {
+	dir := t.TempDir()
+	names := []string{"f0004", "f4", "f9", "f10", "f99999999999999999999", "f100000000000000000000"}
+	for _, name := range names {
+		writeTestFile(t, filepath.Join(dir, name), name)
+	}
+	out, err := runCLI(t, dir, "-lN", "-p", "^f")
+	if err != nil || out != strings.Join(names, "\n")+"\n" {
+		t.Fatalf("natural list: %v: %q", err, out)
+	}
+	if out, err := runCLI(t, dir, "-N", "-p", "^f[0-9]+$", "-r", "{nr}"); err != nil {
+		t.Fatalf("rename: %v: %s", err, out)
+	}
+	for i, name := range names {
+		requireFile(t, filepath.Join(dir, strconv.Itoa(i+1)), name)
 	}
 }

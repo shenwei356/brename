@@ -705,3 +705,79 @@ func TestCLIForceUndoCaseInsensitiveParent(t *testing.T) {
 	requireFile(t, filepath.Join(dir, "parent", "sub", "a"), "original")
 	requireFile(t, filepath.Join(dir, "conflict", "sub", "b"), "unrelated")
 }
+
+// A failed restore must keep its contents and any directory needed for a retry.
+func TestCLIForceUndoProtectsBothPaths(t *testing.T) {
+	for _, shared := range []bool{true, false} {
+		t.Run(map[bool]string{true: "same target", false: "target parent"}[shared], func(t *testing.T) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "b"), "second")
+			writeTestFile(t, filepath.Join(dir, "c"), "independent")
+			target := "out"
+			if shared {
+				writeTestFile(t, filepath.Join(dir, "a"), "first")
+			} else {
+				if err := os.Mkdir(filepath.Join(dir, "a"), 0700); err != nil {
+					t.Fatal(err)
+				}
+				target = "out/item"
+			}
+			writeTestFile(t, filepath.Join(dir, "keys"), "a\tout\nb\t"+target+"\nc\tdone\n")
+			out, err := runCLI(t, dir, "-D", "-o", "1", "-p", "^([abc])$", "-r", "{kv}", "-k", "keys", "c", "a", "b")
+			if err != nil {
+				t.Fatalf("rename: %v: %s", err, out)
+			}
+			writeTestFile(t, filepath.Join(dir, "b"), "conflict")
+			if out, err := runCLI(t, dir, "-U"); err == nil {
+				t.Fatalf("expected conflict: %s", out)
+			}
+			requireFile(t, filepath.Join(dir, target), "second")
+			requireFile(t, filepath.Join(dir, "b"), "conflict")
+			requireFile(t, filepath.Join(dir, "c"), "independent")
+			history, err := readHistory(filepath.Join(dir, LastOpDetailFile))
+			if err != nil || len(history) != 2 {
+				t.Fatalf("retry history: %v, %v", history, err)
+			}
+		})
+	}
+}
+
+// Legacy separators can overlap the end of the source or the start of the target.
+func TestHistoryOverlappingDelimiter(t *testing.T) {
+	for _, op := range []operation{
+		{source: "a" + strings.TrimSuffix(historyDelimiter, "\t"), target: "b"},
+		{source: "a", target: strings.TrimPrefix(historyDelimiter, "\t") + "b"},
+	} {
+		path := filepath.Join(t.TempDir(), LastOpDetailFile)
+		writeTestHistory(t, path, []operation{op})
+		got, err := readHistory(path)
+		if err != nil || len(got) != 1 || got[0] != op {
+			t.Fatalf("round trip: got %#v, %v; want %#v", got, err, op)
+		}
+		writeTestFile(t, path, op.source+historyDelimiter+op.target+"\n")
+		if _, err := readHistory(path); err == nil {
+			t.Fatal("accepted legacy record with two possible separators")
+		}
+	}
+}
+
+// With -w, even a not-yet-created history file reserves its case variants.
+func TestCLIHistoryCaseInsensitiveTarget(t *testing.T) {
+	for _, target := range []string{strings.ToUpper(LastOpDetailFile), filepath.Join(strings.ToUpper(LastOpDetailFile), "nested")} {
+		for _, dry := range []bool{true, false} {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "source"), "data")
+			args := []string{"-w", "-p", "^source$", "-r", target, "source"}
+			if dry {
+				args = append(args, "-d")
+			}
+			if out, err := runCLI(t, dir, args...); err == nil {
+				t.Fatalf("allowed history target %q: %s", target, out)
+			}
+			requireFile(t, filepath.Join(dir, "source"), "data")
+			if _, err := os.Lstat(filepath.Join(dir, target)); !os.IsNotExist(err) {
+				t.Fatalf("target changed: %v", err)
+			}
+		}
+	}
+}

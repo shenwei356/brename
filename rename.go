@@ -127,6 +127,28 @@ func visitDirectoryEntries(path string, visit func(string) bool) bool {
 	return walk(path)
 }
 
+// visitOperationPaths visits the two entries a move changes and the directory
+// entries it traverses. Returning true from either callback stops the visit.
+func visitOperationPaths(op operation, entry, parent func(string) bool) bool {
+	for _, path := range []string{op.source, op.target} {
+		key, err := pathKey(path)
+		if err != nil {
+			key, _ = filepath.Abs(path) // Keep inaccessible paths blocked for undo.
+		}
+		if entry(key) {
+			return true
+		}
+		dir, _ := filepath.Split(path)
+		if dir == "" {
+			dir = "."
+		}
+		if visitDirectoryEntries(dir, parent) {
+			return true
+		}
+	}
+	return false
+}
+
 // containsPath reports whether child is parent itself or an entry below it.
 func containsPath(parent, child string) bool {
 	rel, err := filepath.Rel(parent, child)
@@ -230,6 +252,70 @@ func targetExists(source, target string) (bool, error) {
 	return sourceFound && targetFound, nil
 }
 
+// entrySet compares resolved entry paths. Case-folded spelling only selects
+// candidates: distinct files and hard links on case-sensitive volumes stay distinct.
+type entrySet map[string][]string
+
+// contains checks an existing bucket, including exact paths that are now missing.
+func (s entrySet) contains(key string) bool {
+	for _, previous := range s[foldKey(key)] {
+		if previous == key {
+			return true
+		}
+		if _, err := os.Lstat(key); err == nil {
+			if exists, err := targetExists(previous, key); err == nil && !exists {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// add records an entry once and reports whether it was newly added.
+func (s entrySet) add(key string) bool {
+	if s.contains(key) {
+		return false
+	}
+	folded := foldKey(key)
+	s[folded] = append(s[folded], key)
+	return true
+}
+
+// renameEntry handles filesystems where a direct case-only rename succeeds
+// without changing the stored spelling. The temporary directory reserves a
+// private sibling name for the move and for recovery if rollback also fails.
+func renameEntry(source, target string) error {
+	oldName, newName := filepath.Base(source), filepath.Base(target)
+	if oldName == newName || !strings.EqualFold(oldName, newName) {
+		return os.Rename(source, target)
+	}
+	same, err := sameFileEntries(source, target)
+	if os.IsNotExist(err) || (err == nil && !same) {
+		return os.Rename(source, target)
+	}
+	if err != nil {
+		return err
+	}
+	// Callers have ruled out distinct hard links. Stage the case-only move
+	// before changing the name, so a preparation error leaves history valid.
+	dir, err := os.MkdirTemp(filepath.Dir(target), ".brename-case-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(dir) // An occupied recovery directory is never removed.
+	staged := filepath.Join(dir, "entry")
+	if err := os.Rename(source, staged); err != nil {
+		return err
+	}
+	if err := os.Rename(staged, target); err != nil {
+		if restoreErr := os.Rename(staged, source); restoreErr != nil {
+			return fmt.Errorf("%w; restoring %s: %v; entry retained at %s", err, source, restoreErr, staged)
+		}
+		return err
+	}
+	return nil
+}
+
 // orderOperations keeps moves before any renamed directory or symlink used to
 // reach their source or target, including when explicit search roots overlap.
 // Moves touching the same entry retain their original order.
@@ -266,6 +352,16 @@ func orderOperations(ops []operation) ([]operation, error) {
 		if len(previous) == 0 || previous[len(previous)-1] != before {
 			dependencies[after] = append(previous, before)
 			hasDependencies = true
+		}
+	}
+	// Cross-directory replacements can require the same new path as both a
+	// file and a directory. Check this before executing either move.
+	for _, op := range ops {
+		if filepath.Dir(op.source) != filepath.Dir(op.target) {
+			if err := orderTargetParents(ops, keys, sources, addDependency); err != nil {
+				return nil, err
+			}
+			break
 		}
 	}
 	for i, paths := range keys {
@@ -345,6 +441,95 @@ func orderOperations(ops []operation) ([]operation, error) {
 	return ordered, nil
 }
 
+// orderTargetParents places a new directory before moves that target its contents
+// and rejects using a file as a parent. A move chain can change an entry's type.
+func orderTargetParents(ops []operation, keys [][4]string, sources map[string]int, addDependency func(int, int)) error {
+	writers := make(map[string]int, len(ops))
+	for i, paths := range keys {
+		key := paths[2]
+		if _, ok := writers[key]; ok {
+			writers[key] = -1
+		} else {
+			writers[key] = i
+		}
+	}
+	for childIndex, paths := range keys {
+		for child := paths[2]; ; {
+			parent := filepath.Dir(child)
+			if parent == child {
+				break
+			}
+			child = parent
+			i, ok := writers[parent]
+			if !ok || i < 0 {
+				continue
+			}
+			if _, movesAway := sources[parent]; movesAway {
+				continue
+			}
+			if _, replaced := writers[keys[i][0]]; replaced {
+				continue
+			}
+			info, err := os.Lstat(ops[i].source)
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+				return fmt.Errorf("target %s is also needed as a directory for %s", parent, paths[2])
+			}
+			if ops[i].code == codeOK {
+				addDependency(childIndex, i)
+			}
+		}
+	}
+	return nil
+}
+
+// sameFileEntries checks whether two existing names refer to the same inode.
+func sameFileEntries(source, target string) (bool, error) {
+	s, err := os.Lstat(source)
+	if err != nil {
+		return false, err
+	}
+	t, err := os.Lstat(target)
+	return err == nil && os.SameFile(s, t), err
+}
+
+// validateHardlinkOverwrites rejects known no-op overwrites before any move.
+// Earlier operations may replace either link or a directory used to reach it.
+func validateHardlinkOverwrites(ops []operation) error {
+	var modified entrySet
+	checked := 0
+	for i, op := range ops {
+		if op.code != codeExisted {
+			continue
+		}
+		same, err := sameFileEntries(op.source, op.target)
+		if err != nil {
+			return err
+		}
+		if !same {
+			continue
+		}
+		if modified == nil {
+			modified = make(entrySet)
+		}
+		for ; checked < i; checked++ {
+			for _, path := range []string{ops[checked].source, ops[checked].target} {
+				key, err := pathKey(path)
+				if err != nil {
+					return err
+				}
+				modified.add(key)
+			}
+		}
+		if !visitOperationPaths(op, modified.contains, modified.contains) {
+			return fmt.Errorf("source and target are distinct hard links to the same file: %s -> %s", op.source, op.target)
+		}
+	}
+	return nil
+}
+
 // executeOperations performs the checked plan and records each successful move.
 // Returning errors lets the journal close normally after a partial failure.
 func executeOperations(opt *Options, ops []operation) (n int, err error) {
@@ -352,7 +537,7 @@ func executeOperations(opt *Options, ops []operation) (n int, err error) {
 	var pending string                 // Keep the previous log until the first move succeeds.
 	quoted := historyNeedsQuoting(ops) // Ordinary logs remain readable by older builds.
 	if !opt.DisableUndo {
-		if err := validateHistoryPath(opt.LastOpDetailFile, ops); err != nil {
+		if err := validateHistoryPath(opt.LastOpDetailFile, ops, opt.PathCaseInsensitive); err != nil {
 			return 0, err
 		}
 		journal, err = createHistory(opt.LastOpDetailFile, quoted)
@@ -374,6 +559,20 @@ func executeOperations(opt *Options, ops []operation) (n int, err error) {
 				}
 			}
 		}()
+		// A fresh log has no inode to compare with a differently cased target.
+		// Its staged sibling lets execution check the actual volume even without -w.
+		if !opt.PathCaseInsensitive {
+			alias := filepath.Join(filepath.Dir(pending), strings.ToUpper(filepath.Base(pending)))
+			same, probeErr := sameFileEntries(pending, alias)
+			if probeErr != nil && !os.IsNotExist(probeErr) {
+				return 0, probeErr
+			}
+			if same {
+				if err := validateHistoryPath(opt.LastOpDetailFile, ops, true); err != nil {
+					return 0, err
+				}
+			}
+		}
 	}
 	if !opt.Quiet {
 		log.Infof("\n%s\n", bold("Renaming paths..."))
@@ -394,15 +593,11 @@ func executeOperations(opt *Options, ops []operation) (n int, err error) {
 			return n, fmt.Errorf("target already exists: %s", op.target)
 		}
 		if exists {
-			sourceInfo, err := os.Lstat(op.source)
+			same, err := sameFileEntries(op.source, op.target)
 			if err != nil {
 				return n, err
 			}
-			targetInfo, err := os.Lstat(op.target)
-			if err != nil {
-				return n, err
-			}
-			if os.SameFile(sourceInfo, targetInfo) {
+			if same {
 				return n, fmt.Errorf("source and target are distinct hard links to the same file: %s -> %s", op.source, op.target)
 			}
 		}
@@ -421,7 +616,7 @@ func executeOperations(opt *Options, ops []operation) (n int, err error) {
 				return n, discardHistoryRecord(journal, recordOffset, fmt.Errorf("record %s -> %s: %w", op.source, op.target, err))
 			}
 		}
-		if err := os.Rename(op.source, op.target); err != nil {
+		if err := renameEntry(op.source, op.target); err != nil {
 			if journal != nil {
 				err = discardHistoryRecord(journal, recordOffset, err)
 			}

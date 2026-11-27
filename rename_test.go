@@ -727,6 +727,20 @@ func TestCLICaseInsensitiveAliases(t *testing.T) {
 		}
 		requireFile(t, filepath.Join(dir, "file"), "original")
 	})
+	t.Run("undo restores stored spelling", func(t *testing.T) {
+		dir := caseInsensitiveTestDir(t)
+		writeTestFile(t, filepath.Join(dir, "MiXeD"), "original")
+		if out, err := runCLI(t, dir, "-w", "-p", "^MIXED$", "-r", "renamed", "MIXED"); err != nil {
+			t.Fatalf("rename through alias: %v: %s", err, out)
+		}
+		if out, err := runCLI(t, dir, "-u"); err != nil {
+			t.Fatalf("undo: %v: %s", err, out)
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil || len(entries) != 1 || entries[0].Name() != "MiXeD" {
+			t.Fatalf("original spelling: %v, %v", entries, err)
+		}
+	})
 	t.Run("duplicate numbered source", func(t *testing.T) {
 		dir := caseInsensitiveTestDir(t)
 		writeTestFile(t, filepath.Join(dir, "file"), "original")
@@ -785,4 +799,79 @@ func TestCLICaseInsensitiveAliases(t *testing.T) {
 		}
 		requireFile(t, filepath.Join(dir, "parent", "sub", "a"), "original")
 	})
+}
+
+// An absent path cannot become both a regular file and a target directory.
+func TestCLIConflictingTargetParent(t *testing.T) {
+	for _, order := range [][]string{{"a", "b"}, {"b", "a"}} {
+		for _, dry := range []bool{false, true} {
+			dir := t.TempDir()
+			for _, name := range order {
+				writeTestFile(t, filepath.Join(dir, name), name)
+			}
+			writeTestFile(t, filepath.Join(dir, "keys"), "a\tout\nb\tout/nested/item\n")
+			writeTestFile(t, filepath.Join(dir, LastOpDetailFile), "previous")
+			args := []string{"-p", "^([ab])$", "-r", "{kv}", "-k", "keys"}
+			if dry {
+				args = append(args, "-d")
+			}
+			if out, err := runCLI(t, dir, append(args, order...)...); err == nil {
+				t.Fatalf("accepted conflicting targets: %s", out)
+			}
+			for _, name := range order {
+				requireFile(t, filepath.Join(dir, name), name)
+			}
+			requireFile(t, filepath.Join(dir, LastOpDetailFile), "previous")
+			if _, err := os.Lstat(filepath.Join(dir, "out")); !os.IsNotExist(err) {
+				t.Fatalf("target created: %v", err)
+			}
+		}
+	}
+}
+
+// A hard-link overwrite can become valid if an earlier move replaces one link.
+func TestCLIHardlinkOverwritePlan(t *testing.T) {
+	for _, earlier := range []bool{false, true} {
+		dir := t.TempDir()
+		writeTestFile(t, filepath.Join(dir, "a"), "original")
+		if err := os.Link(filepath.Join(dir, "a"), filepath.Join(dir, "b")); err != nil {
+			t.Skipf("hard links unavailable: %v", err)
+		}
+		writeTestFile(t, filepath.Join(dir, "c"), "other")
+		inputs := []string{"a"}
+		if earlier {
+			inputs = []string{"c", "a"}
+		}
+		args := append([]string{"-o", "1", "-p", "^[ac]$", "-r", "b"}, inputs...)
+		out, err := runCLI(t, dir, append([]string{"-d"}, args...)...)
+		if (err == nil) != earlier {
+			t.Fatalf("hard-link preview: %v: %s", err, out)
+		}
+		if out, err := runCLI(t, dir, args...); (err == nil) != earlier {
+			t.Fatalf("hard-link execution: %v: %s", err, out)
+		}
+		requireFile(t, filepath.Join(dir, "b"), "original")
+	}
+}
+
+// A directory moved into place must exist before another file is moved inside it.
+func TestCLINewDirectoryTarget(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "folder"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(dir, "folder", "keep"), "keep")
+	writeTestFile(t, filepath.Join(dir, "item"), "item")
+	writeTestFile(t, filepath.Join(dir, "keys"), "folder\tout\nitem\tout/new\n")
+	out, err := runCLI(t, dir, "-D", "-p", "^(item|folder)$", "-r", "{kv}", "-k", "keys", "item", "folder")
+	if err != nil {
+		t.Fatalf("directory target: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "out", "new"), "item")
+	requireFile(t, filepath.Join(dir, "out", "keep"), "keep")
+	if out, err := runCLI(t, dir, "-u"); err != nil {
+		t.Fatalf("undo: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "folder", "keep"), "keep")
+	requireFile(t, filepath.Join(dir, "item"), "item")
 }
