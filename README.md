@@ -180,7 +180,7 @@ verify that behavior. Cross-compiling also does not run these filesystem checks.
 
 brename: a practical cross-platform command-line tool for safely batch renaming files/directories via regular expression
 
-Version: 2.15.1
+Version: 2.16.0
 
 Author: Wei Shen <shenwei356@gmail.com>
 
@@ -203,6 +203,13 @@ Search paths:
   3. -l lists matching source paths without reading key-value inputs or applying replacements.
   4. Fatal search or target-check errors stop the scan with exit status 1 before any files are renamed.
      The error message states when not all paths were checked; -d does not suppress these errors.
+
+Unicode filenames:
+  --unicode-nfc matches filenames in Unicode Normalization Form C (NFC). For example, it
+  treats 'u' followed by a combining circumflex (U+0302) as 'û' (U+00FB). Write patterns
+  and filters in NFC. A pattern such as 'août' then matches either spelling.
+  Listing and undo use the original paths. Replacements use the NFC spelling of the basename,
+  including captures and unmatched text. With -e, the original extension is preserved.
 
 Three path filters:
 
@@ -345,6 +352,7 @@ Flags:
                                   patterns containing comma, e.g., -p '"A{2,}"' (default [^\.])
   -n, --start-num int             starting number when using {nr} in replacement (default 1)
   -u, --undo                      undo the last rename operation; retain failed entries for retry
+      --unicode-nfc               match filenames in Unicode Normalization Form C (NFC)
   -v, --verbose int               verbose level (0 for all, 1 for warning, error and renamed files, 2
                                   for only error and renamed files) (default 2)
   -V, --version                   print version information and check for update

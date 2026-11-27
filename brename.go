@@ -38,11 +38,12 @@ import (
 	"github.com/shenwei356/util/pathutil"
 	"github.com/shenwei356/xopen"
 	"github.com/spf13/cobra"
+	"golang.org/x/text/unicode/norm"
 )
 
 var log *logging.Logger
 
-var VERSION = "2.15.0"
+var VERSION = "2.16.0"
 var app = "brename"
 var LastOpDetailFile = ".brename_detail.txt"
 
@@ -64,6 +65,7 @@ type Options struct {
 	OnlyDir      bool
 	MaxDepth     int
 	IgnoreCase   bool
+	UnicodeNFC   bool // Match and replace against an NFC copy of the basename.
 	IgnoreExt    bool
 	IgnoreErr    bool
 
@@ -162,6 +164,7 @@ func getOptions(cmd *cobra.Command) *Options {
 	}
 	p := pattern
 	ignoreCase := getFlagBool(cmd, "ignore-case")
+	unicodeNFC := getFlagBool(cmd, "unicode-nfc")
 	if ignoreCase {
 		p = "(?i)" + p
 	}
@@ -308,7 +311,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		if !quiet {
 			log.Infof("read key-value file: %s", kvFile)
 		}
-		kvs, err = readKVs(kvFile, ignoreCase)
+		kvs, err = readKVs(kvFile, ignoreCase, unicodeNFC)
 		if err != nil {
 			checkError(fmt.Errorf("read key-value file: %s", err))
 		}
@@ -434,6 +437,7 @@ func getOptions(cmd *cobra.Command) *Options {
 		OnlyDir:      onlyDir,
 		MaxDepth:     maxDepth,
 		IgnoreCase:   ignoreCase,
+		UnicodeNFC:   unicodeNFC,
 		IgnoreExt:    getFlagBool(cmd, "ignore-ext"),
 		IgnoreErr:    getFlagBool(cmd, "ignore-err"),
 
@@ -494,6 +498,7 @@ func init() {
 	RootCmd.Flags().BoolP("only-dir", "", false, "only rename directories")
 	RootCmd.Flags().IntP("max-depth", "", 0, "maximum depth for recursive search or --clear (0 for no limit)")
 	RootCmd.Flags().BoolP("ignore-case", "i", false, "ignore case of -p/--pattern, -f/--include-filters and -F/--exclude-filters")
+	RootCmd.Flags().Bool("unicode-nfc", false, "match filenames in Unicode Normalization Form C (NFC)")
 	RootCmd.Flags().BoolP("ignore-ext", "e", false, "ignore file extension. i.e., replacement does not change file extension")
 	RootCmd.Flags().BoolP("ignore-err", "E", false, "ignore directory reading errors")
 
@@ -728,6 +733,13 @@ Search paths:
   3. -l lists matching source paths without reading key-value inputs or applying replacements.
   4. Fatal search or target-check errors stop the scan with exit status 1 before any files are renamed.
      The error message states when not all paths were checked; -d does not suppress these errors.
+
+Unicode filenames:
+  --unicode-nfc matches filenames in Unicode Normalization Form C (NFC). For example, it
+  treats 'u' followed by a combining circumflex (U+0302) as 'û' (U+00FB). Write patterns
+  and filters in NFC. A pattern such as 'août' then matches either spelling.
+  Listing and undo use the original paths. Replacements use the NFC spelling of the basename,
+  including captures and unmatched text. With -e, the original extension is preserved.
 
 Three path filters:
 
@@ -1040,7 +1052,16 @@ func (op operation) String() string {
 	return fmt.Sprintf(`[%s] %s -> %s`, op.code, op.source, op.target)
 }
 
-// checkOperation checks an renaming operation
+// matchText returns the spelling used for regex matching and key lookup.
+// Filesystem operations and undo history always use the original source path.
+func matchText(s string, unicodeNFC bool) string {
+	if unicodeNFC {
+		return norm.NFC.String(s)
+	}
+	return s
+}
+
+// checkOperation checks a rename operation.
 func checkOperation(opt *Options, path string) (bool, operation) {
 	path, err := normalizePath(path)
 	checkSearchError(opt, err)
@@ -1051,6 +1072,7 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		filename = filename[0 : len(filename)-len(ext)]
 	}
 
+	filename = matchText(filename, opt.UnicodeNFC)
 	if !opt.PatternRe.MatchString(filename) {
 		return false, operation{}
 	}
@@ -1182,7 +1204,7 @@ func replaceWithKVs(opt *Options, filename, replacement string) (string, bool) {
 	return string(result), true
 }
 
-// excluded controls both path exclusion and recursive directory pruning.
+// excluded checks a matching-form basename for path exclusion and directory pruning.
 func excluded(opt *Options, path string) bool {
 	for _, filters := range [][]*regexp.Regexp{opt.SkipFilterRes, opt.ExcludeFilterRes} {
 		for _, re := range filters {
@@ -1196,6 +1218,7 @@ func excluded(opt *Options, path string) bool {
 
 // ignore applies include filters after the two exclusion filters.
 func ignore(opt *Options, path string) bool {
+	path = matchText(path, opt.UnicodeNFC)
 	if excluded(opt, path) {
 		return true
 	}
@@ -1344,7 +1367,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 		natsort.Sort(_dirs)
 	}
 	for _, filename := range _dirs {
-		if excluded(opt, filename) {
+		if excluded(opt, matchText(filename, opt.UnicodeNFC)) {
 			continue
 		}
 
@@ -1378,7 +1401,7 @@ func walk(opt *Options, opCh chan<- operation, path string, depth int) error {
 }
 
 // readKVs reads a tab-delimited file containing key-value pairs
-func readKVs(file string, ignoreCase bool) (kvs map[string]string, err error) {
+func readKVs(file string, ignoreCase, unicodeNFC bool) (kvs map[string]string, err error) {
 	kvs = make(map[string]string)
 	reader, err := xopen.Ropen(file)
 	if err == xopen.ErrNoContent {
@@ -1400,7 +1423,7 @@ func readKVs(file string, ignoreCase bool) (kvs map[string]string, err error) {
 		}
 		items := strings.SplitN(strings.TrimRight(line, "\r\n"), "\t", 3)
 		if len(items) >= 2 {
-			key := items[0]
+			key := matchText(items[0], unicodeNFC)
 			if ignoreCase {
 				key = strings.ToLower(key)
 			}

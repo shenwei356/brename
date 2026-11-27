@@ -416,6 +416,55 @@ func TestCLIExplicitPaths(t *testing.T) {
 	})
 }
 
+// TestCLIUnicodeNFC uses decomposed filenames with a composed search expression.
+func TestCLIUnicodeNFC(t *testing.T) {
+	dir := t.TempDir()
+	const name = "aou\u0302t.pdf"
+	writeTestFile(t, filepath.Join(dir, name), "august")
+	out, err := runCLI(t, dir, "--unicode-nfc", "-il", "-p", "^.*AOÛT.*$", "-f", "août", name)
+	if err != nil || out != name+"\n" {
+		t.Fatalf("list: %v, got %q, want the original spelling %q", err, out, name)
+	}
+	// The capture uses NFC, while lookup also accepts a decomposed key.
+	writeTestFile(t, filepath.Join(dir, "kv"), "ou\u0302\tsummer\n")
+	out, err = runCLI(t, dir, "--unicode-nfc", "-e", "-p", "a(oû)t", "-k", "kv", "-r", "${1}-{kv}", name)
+	if err != nil {
+		t.Fatalf("rename: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, "oû-summer.pdf"), "august")
+	if out, err := runCLI(t, dir, "-u"); err != nil {
+		t.Fatalf("undo: %v: %s", err, out)
+	}
+	requireFile(t, filepath.Join(dir, name), "august")
+
+	// An identity replacement must leave the original directory entry intact.
+	out, err = runCLI(t, dir, "--unicode-nfc", "-d", "-p", "û", "-r", "$0", name)
+	if err != nil || !strings.Contains(out, "0 path(s) to be renamed") {
+		t.Fatalf("identity replacement: %v: %s", err, out)
+	}
+}
+
+// TestCLIUnicodeFilters checks pruning, listing and the default raw match mode.
+func TestCLIUnicodeFilters(t *testing.T) {
+	dir := t.TempDir()
+	const sub = "cafe\u0301"
+	if err := os.Mkdir(filepath.Join(dir, sub), 0700); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(dir, sub, "item"), "")
+	for _, flag := range []string{"-S", "-F"} {
+		out, err := runCLI(t, dir, "--unicode-nfc", "-Rl", "-p", "item", flag, "^café$")
+		if err != nil || out != "\n" {
+			t.Fatalf("%s: %v: %q", flag, err, out)
+		}
+	}
+	// An explicit argument retains its spelling even on normalizing filesystems.
+	out, err := runCLI(t, dir, "-lD", "-p", "^café$", sub)
+	if err != nil || out != "\n" {
+		t.Fatalf("default matching: %v: %q", err, out)
+	}
+}
+
 func TestCLIRecursiveFilters(t *testing.T) {
 	for _, includeDirs := range []bool{false, true} {
 		t.Run(fmt.Sprint(includeDirs), func(t *testing.T) {
@@ -488,7 +537,7 @@ func TestReadKVs(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "kv")
 	writeTestFile(t, path, "A\tfirst\r\nignored\nA\tlast\textra\nB\tsecond")
-	kvs, err := readKVs(path, true)
+	kvs, err := readKVs(path, true, false)
 	if err != nil || len(kvs) != 2 || kvs["a"] != "last" || kvs["b"] != "second" {
 		t.Fatalf("map %v, error %v", kvs, err)
 	}
@@ -508,7 +557,7 @@ func TestReadKVs(t *testing.T) {
 		if err := os.WriteFile(path, data, 0600); err != nil {
 			t.Fatal(err)
 		}
-		kvs, err = readKVs(path, false)
+		kvs, err = readKVs(path, false, false)
 		if corrupt && err == nil {
 			t.Fatal("accepted truncated gzip")
 		}

@@ -1,6 +1,8 @@
 # Changelog
 
-- v2.15.1
+- v2.16.0
+    - new flag `--unicode-nfc` matches composed and decomposed spellings of accented filenames, such as `août.pdf`. [#27](https://github.com/shenwei356/brename/issues/27)
+    - fix: identify directories from their metadata when scanning external drives, and avoid loading large files into memory when a shell wildcard includes them. [#14](https://github.com/shenwei356/brename/issues/14), [#30](https://github.com/shenwei356/brename/issues/30)
     - fix: label fatal errors clearly and report when a search stops before all paths are checked, including during dry runs
     - fix: avoid false failures in packaging tests for the supported Linux and Windows 386 releases.
 

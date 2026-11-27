@@ -10,6 +10,7 @@ require (
 	github.com/shenwei356/util v0.5.7
 	github.com/shenwei356/xopen v0.4.1
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/text v0.44.0
 )
 
 require (
