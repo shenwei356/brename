@@ -442,9 +442,6 @@ func executeOperations(opt *Options, ops []operation) (n int, err error) {
 				pending = ""
 				// Open with O_WRONLY (not O_APPEND) so Truncate works on Windows too.
 				journal, err = os.OpenFile(opt.LastOpDetailFile, os.O_WRONLY, 0600)
-				if err == nil {
-					_, err = journal.Seek(0, io.SeekEnd)
-				}
 				if err != nil {
 					return n, err
 				}
@@ -461,9 +458,6 @@ func executeOperations(opt *Options, ops []operation) (n int, err error) {
 func discardHistoryRecord(journal *os.File, offset int64, cause error) error {
 	if err := journal.Truncate(offset); err != nil {
 		return fmt.Errorf("%w; removing pending history record: %v", cause, err)
-	}
-	if _, err := journal.Seek(offset, io.SeekStart); err != nil {
-		return fmt.Errorf("%w; rewinding pending history record: %v", cause, err)
 	}
 	return cause
 }

@@ -101,7 +101,7 @@ type Options struct {
 	DisableUndo        bool
 	ClearOpDetailFiles bool
 
-	seenSources map[string]struct{} // Directory entries already considered for this rename run.
+	seenSources map[string][]string // Directory entries already considered for this rename run.
 }
 
 // maxNumberWidth keeps padding within fmt's supported formatting range.
@@ -643,6 +643,37 @@ func hasDirectorySuffix(path string) bool {
 	return false
 }
 
+// sameDirEntry reports whether two resolved paths refer to the same directory entry.
+// Two distinct entries whose names happen to share a Unicode case folding (e.g. K.txt
+// and K.txt) or two distinct hard links remain independently renameable.
+func sameDirEntry(a, b string) bool {
+	i1, err1 := os.Lstat(a)
+	i2, err2 := os.Lstat(b)
+	if err1 != nil || err2 != nil || !os.SameFile(i1, i2) {
+		return false
+	}
+	dir := filepath.Dir(a)
+	if dir != filepath.Dir(b) {
+		return false
+	}
+	baseA, baseB := filepath.Base(a), filepath.Base(b)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	var seenA, seenB bool
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == baseA {
+			seenA = true
+		}
+		if name == baseB {
+			seenB = true
+		}
+	}
+	return !(seenA && seenB)
+}
+
 func getFlagBool(cmd *cobra.Command, flag string) bool {
 	value, err := cmd.Flags().GetBool(flag)
 	checkError(err)
@@ -926,7 +957,7 @@ Special cases of replacement string:
 		paths := getFileList(args)
 		if len(paths) > 1 {
 			// A single traversal already visits each entry once, in postorder.
-			opt.seenSources = make(map[string]struct{})
+			opt.seenSources = make(map[string][]string)
 		}
 
 		if !opt.Quiet && opt.Verbose == 0 {
@@ -1083,11 +1114,13 @@ func checkOperation(opt *Options, path string) (bool, operation) {
 		if opt.PathCaseInsensitive {
 			seenKey = strings.ToLower(source2)
 		}
-		if _, seen := opt.seenSources[seenKey]; seen {
-			return false, operation{}
+		for _, prev := range opt.seenSources[seenKey] {
+			if prev == source2 || (opt.PathCaseInsensitive && sameDirEntry(prev, source2)) {
+				return false, operation{}
+			}
 		}
 		// Deduplicate before expanding {nr}, including overlapping search roots.
-		opt.seenSources[seenKey] = struct{}{}
+		opt.seenSources[seenKey] = append(opt.seenSources[seenKey], source2)
 	}
 
 	r := opt.Replacement

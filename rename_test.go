@@ -743,6 +743,24 @@ func TestCLICaseInsensitiveAliases(t *testing.T) {
 		}
 		requireFile(t, filepath.Join(dir, "file"), "original")
 	})
+	t.Run("distinct unicode case fold", func(t *testing.T) {
+		dir := caseInsensitiveTestDir(t)
+		latin := "K.txt"
+		kelvin := "\u212A.txt"
+		writeTestFile(t, filepath.Join(dir, latin), "latin")
+		writeTestFile(t, filepath.Join(dir, kelvin), "kelvin")
+		if _, err := os.Lstat(filepath.Join(dir, kelvin)); err != nil {
+			t.Skipf("filesystem folds U+212A: %v", err)
+		}
+		if entries, err := os.ReadDir(dir); err != nil || len(entries) < 2 {
+			t.Skipf("filesystem did not preserve distinct K.txt and U+212A.txt entries")
+		}
+		if out, err := runCLI(t, dir, "-w", "-p", "^.*$", "-r", "new_{nr}", latin, kelvin); err != nil {
+			t.Fatalf("distinct unicode fold: %v: %s", err, out)
+		}
+		requireFile(t, filepath.Join(dir, "new_1"), "latin")
+		requireFile(t, filepath.Join(dir, "new_2"), "kelvin")
+	})
 	t.Run("unchanged parent alias", func(t *testing.T) {
 		dir := caseInsensitiveTestDir(t)
 		if err := os.Mkdir(filepath.Join(dir, "parent"), 0700); err != nil {
